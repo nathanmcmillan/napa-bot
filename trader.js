@@ -1,6 +1,7 @@
 const private = require('../private.json');
 const https = require('https');
 const crypto = require('crypto');
+const sqlite = require('sqlite3');
 const apiRest = 'api.gdax.com';
 const apiTime = '/time';
 const apiProducts = '/products';
@@ -82,14 +83,95 @@ function getAccounts() {
 }
 
 async function main() {
-    console.log('trading');
-    getAccounts();
+    console.log('cryptocurrency trade bot');
+    console.log('getting database');
+    
+    let db;
+    
+    await (() => {
+        return new Promise((resolve, reject) => {
+            db = new sqlite.Database('trade.db', (error) => {
+                if (error) {
+                    console.error(error.message);
+                    reject(error);
+                }
+                console.log('connected to database');
+                resolve();
+            });
+        });
+    })();
+    
+    await (() => {
+        return new Promise((resolve, reject) => {
+            let query = `insert into trades(price) select '0.01'`;
+            db.run(query, (error) => {
+                if (error) {
+                    console.error(error.message);
+                    reject(error);
+                }
+                console.log('sql insert');
+                resolve();
+            });
+        });
+    })();
+    
+    await (() => {
+        return new Promise((resolve, reject) => {
+            let query = `select * from trades`;
+            db.all(query, [], (error, rows) => {
+                if (error) {
+                    console.error(error.message);
+                    reject(error);
+                }
+                console.log('sql query');
+                rows.forEach((row) => {
+                    console.log(row.id);
+                });
+                resolve();
+            });
+        });
+    })();
+    
+    // getAccounts();
+    
+    doSync((resolve, reject) => {
+        db.close((error) => {
+            if (error) {
+                console.error(error.message);
+                reject(error);
+            }
+            console.log('closed database');
+            resolve();
+        });
+    });
+    
+    /* await (() => {
+        return new Promise((resolve, reject) => {
+            db.close((error) => {
+                if (error) {
+                    console.error(error.message);
+                    reject(error);
+                }
+                console.log('closed database');
+                resolve();
+            });
+        });
+    })(); */
+    
     await sleep(100);
     console.log('done');
 }
 
 async function sleep(millis) {
     return new Promise(resolve => setTimeout(resolve, millis));
+}
+
+function doSync(call) {
+    await (() => {
+        return new Promise((resolve, reject) => {
+            call(resolve, reject);
+        });
+    })();
 }
 
 main();

@@ -1,0 +1,22 @@
+{
+  "name": "currency-trader",
+  "version": "1.0.0",
+  "description": "bot for gdax",
+  "main": "trader.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gameinbucket/currency-trader.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gameinbucket/currency-trader/issues"
+  },
+  "homepage": "https://github.com/gameinbucket/currency-trader#readme",
+  "dependencies": {
+    "sqlite3": "^3.1.13"
+  }
+}
