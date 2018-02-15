@@ -1,22 +1,23 @@
 {
-  "name": "currency-trader",
+  "name": "napa-bot",
   "version": "1.0.0",
   "description": "bot for gdax",
-  "main": "trader.js",
+  "main": "create-db.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gameinbucket/currency-trader.git"
+    "url": "git+https://github.com/gameinbucket/napa-bot.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/gameinbucket/currency-trader/issues"
+    "url": "https://github.com/gameinbucket/napa-bot/issues"
   },
-  "homepage": "https://github.com/gameinbucket/currency-trader#readme",
+  "homepage": "https://github.com/gameinbucket/napa-bot#readme",
   "dependencies": {
-    "sqlite3": "^3.1.13"
+    "sqlite3": "^3.1.13",
+    "ws": "^4.0.0"
   }
 }
