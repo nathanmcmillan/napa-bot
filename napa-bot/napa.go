@@ -10,9 +10,9 @@ import (
 func main() {
 	fmt.Println("napa bot")
 	product := "LTC-USD"
-	history := gdax.GetHistory(product, "2018-02-16", "2018-02-17", "3600")
-	rsi := analyst.RelativeStrengthIndex(history)
-	fmt.Println("RSI ", rsi)
+	history := gdax.GetHistory(product, "2018-02-16", "2018-02-18", "3600")
+	fmt.Println("MACD", analyst.MovingAverageConvergenceDivergence(12, 26, history))
+	fmt.Println("RSI", analyst.RelativeStrengthIndex(14, history))
 	
 	/* gdax.GetCurrencies()
 	gdax.GetBook(product)
