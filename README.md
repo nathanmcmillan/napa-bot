@@ -1,2 +1,2 @@
-# currency-trader
-bot for gdax
+# napa-bot
+coin market trader
