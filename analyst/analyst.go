@@ -5,8 +5,8 @@ import (
     "../historian"
 )
 
-type Analyst struct (
-    TimeInterval int64 
+type Analyst struct {
+    TimeInterval int64
     RsiPeriods int64
     Rsi []float64
     EmaShort int64
@@ -17,14 +17,23 @@ type Analyst struct (
     TickerAverage float64
     BuyAverage float64
     SellAverage float64
-)
+}
 
 func PercentChange(previous, now float64) float64 {
     return (now - previous) / previous * 100
 }
 
 func UpdateMovingAverage(current, update float64, periods int64) float64 {
-    return (current * periods + update) / (periods + 1)
+    return (current * float64(periods) + update) / float64(periods + 1)
+}
+
+func Average(values []float64) float64 {
+    count := len(values)
+    average := float64(0.0)
+    for i := 0; i < count; i++ {
+        average += values[i]
+    }
+    return average / count
 }
 
 func SimpleMovingAverage(periods int, history []historian.Period) ([]float64) {

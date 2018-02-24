@@ -131,9 +131,7 @@ func GetAccounts() []Profile {
 	url := api + "/accounts"
 	data := ""
 	
-	client := &http.Client{}
-	request, err := http.NewRequest(method, url, nil)
-	ok(err)
+	client, request := request(get, url)
 	
 	key := ""
 	secret:= ""
@@ -148,9 +146,6 @@ func GetAccounts() []Profile {
 	ok(err)
 	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
 	
-	request.Header.Add("Accept", "application/json")
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("User-Agent", "napa")
 	request.Header.Add("CB-ACCESS-KEY", key)
 	request.Header.Add("CB-ACCESS-SIGN", signature)
 	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
@@ -174,12 +169,12 @@ func GetAccounts() []Profile {
 	for _, list := range decode {
 		values := list.(map[string]interface{})
 		profile := Profile{}
-		profile.ID = values["id"].(string)
-		profile.Currency = values["currency"].(string)
-		profile.Balance = values["balance"].(string)
-		profile.Available = values["available"].(string)
-		profile.Hold = values["hold"].(string)
-		profile.ProfileID = values["profile_id"].(string)
+		profile.ID, _ = values["id"].(string)
+		profile.Currency, _ = values["currency"].(string)
+		profile.Balance, _ = values["balance"].(string)
+		profile.Available, _ = values["available"].(string)
+		profile.Hold, _ = values["hold"].(string)
+		profile.ProfileID, _ = values["profile_id"].(string)
 		profiles = append(profiles, profile)
 	}
 	return profiles

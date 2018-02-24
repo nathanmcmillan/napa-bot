@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"./decoding"
+	"./analyst"
 	"./gdax"
 	"./historian"
 	"github.com/gorilla/websocket"
@@ -192,7 +194,16 @@ func main() {
 	http.HandleFunc("/websocket", clientSocket)
 	http.ListenAndServe(":80", nil)*/
 	
-	fmt.Println(getFile("./public.json"))
+	public := getFile("./public.json")
+	fmt.Println(public)
+	
+	var analysis = analyst.Analyst{}
+	analysis.TimeInterval = decoding.GetInteger(public, "interval")
+	analysis.EmaShort = decoding.GetInteger(public, "ema-short")
+	analysis.EmaLong = decoding.GetInteger(public, "ema-long")
+	analysis.RsiPeriods = decoding.GetInteger(public, "rsi")
+	
+	fmt.Println(analysis)
 	
 	gdax.GetAccounts()
 }
