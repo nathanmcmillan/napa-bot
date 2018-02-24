@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"./gdax"
 	"./historian"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
@@ -180,7 +181,7 @@ func clientSocket(writer http.ResponseWriter, request *http.Request) {
 func main() {
 	fmt.Println("napa bot")
 
-	fmt.Println("loading files")
+	/*fmt.Println("loading files")
 	file, err := os.Open("napa.html")
 	ok(err)
 	contents, err = ioutil.ReadAll(file)
@@ -189,7 +190,11 @@ func main() {
 	fmt.Println("listening and serving")
 	http.HandleFunc("/", indexPage)
 	http.HandleFunc("/websocket", clientSocket)
-	http.ListenAndServe(":80", nil)
+	http.ListenAndServe(":80", nil)*/
+	
+	fmt.Println(getFile("./public.json"))
+	
+	gdax.GetAccounts()
 }
 
 func sleep(seconds int32) {
@@ -200,4 +205,16 @@ func ok(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+func getFile(path string) map[string]interface{} {
+	file, err := os.Open(path)
+	ok(err)
+	contents, err := ioutil.ReadAll(file)
+	ok(err)
+	var decode interface{}
+	err = json.Unmarshal(contents, &decode)
+	ok(err)
+	js, _ := decode.(map[string]interface{})
+	return js
 }

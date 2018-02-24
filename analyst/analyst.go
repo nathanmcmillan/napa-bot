@@ -5,6 +5,28 @@ import (
     "../historian"
 )
 
+type Analyst struct (
+    TimeInterval int64 
+    RsiPeriods int64
+    Rsi []float64
+    EmaShort int64
+    EmaLong int64
+    Macd []float64
+    Ticker []float64
+    Book []float64
+    TickerAverage float64
+    BuyAverage float64
+    SellAverage float64
+)
+
+func PercentChange(previous, now float64) float64 {
+    return (now - previous) / previous * 100
+}
+
+func UpdateMovingAverage(current, update float64, periods int64) float64 {
+    return (current * periods + update) / (periods + 1)
+}
+
 func SimpleMovingAverage(periods int, history []historian.Period) ([]float64) {
     size := len(history)
     sma := make([]float64, size)
