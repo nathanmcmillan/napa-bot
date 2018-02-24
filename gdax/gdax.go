@@ -4,6 +4,14 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"os"
+	"strconv"
+	"time"
 )
 
 const (
@@ -11,6 +19,16 @@ const (
 	get  = "GET"
 	post = "POST"
 )
+
+// Profile exchange account product data
+type Profile struct {
+	ID    string
+	Currency     string
+	Balance    string
+	Available    string
+	Hold string
+	ProfileID  string
+}
 
 // Candle product data
 type Candle struct {
@@ -101,6 +119,52 @@ func GetHistory(product, start, end, granularity string) []Candle {
 
 // GetStats map of 24 hour product statistics
 func GetStats(product string) interface{} {
+	body := getRequest(api + "/products/" + product + "/stats")
+	var decode interface{}
+	err := json.Unmarshal(body, &decode)
+	ok(err)
+	return decode
+}
+
+// GetAccounts map of account balances
+func GetAccounts() []Profile {
+	
+	method := get
+	url := api + "/accounts"
+	data := ""
+	
+	client := &http.Client{}
+	request, err := http.NewRequest(method, url, nil)
+	ok(err)
+	
+	key := ""
+	secret:= ""
+	passphrase := ""
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	
+	message := timestamp + method + url + data
+	key, err := base64.StdEncoding.DecodeString(secret)
+	ok(err)
+	hashMessage := hmac.New(sha256.New, key)
+	_, err = hashMessage.Write([]byte(message))
+	ok(err)
+	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil)), nil
+	
+	request.Header.Add("Accept", "application/json")
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("User-Agent", "napa")
+	request.Header.Add("CB-ACCESS-KEY", key)
+	request.Header.Add("CB-ACCESS-SIGN", signature)
+	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
+	request.Header.Add("CB-ACCESS-PASSPHRASE", passphrase)
+	
+	client, request := request(get, url)
+	response, err := client.Do(request)
+	ok(err)
+	body, err := ioutil.ReadAll(response.Body)
+	ok(err)
+	response.Body.Close()
+	
 	body := getRequest(api + "/products/" + product + "/stats")
 	var decode interface{}
 	err := json.Unmarshal(body, &decode)
