@@ -18,6 +18,13 @@ const (
 	post = "POST"
 )
 
+// Authentication private data
+type Authentication struct {
+	Key string
+	Secret string
+	Passphrase string
+}
+
 // Profile exchange account product data
 type Profile struct {
 	ID    string
@@ -125,31 +132,80 @@ func GetStats(product string) interface{} {
 }
 
 // GetAccounts map of account balances
-func GetAccounts() []Profile {
+func GetAccounts(private *Authentication) []Profile {
 	
 	method := get
 	url := api + "/accounts"
-	data := ""
 	
-	client, request := request(get, url)
+	client, request := request(method, url)
 	
-	key := ""
-	secret:= ""
-	passphrase := ""
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	
-	message := timestamp + method + url + data
-	base64key, err := base64.StdEncoding.DecodeString(secret)
+	message := timestamp + method + url
+	base64key, err := base64.StdEncoding.DecodeString(private.Secret)
 	ok(err)
 	hashMessage := hmac.New(sha256.New, base64key)
 	_, err = hashMessage.Write([]byte(message))
 	ok(err)
 	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
 	
-	request.Header.Add("CB-ACCESS-KEY", key)
+	request.Header.Add("CB-ACCESS-KEY", private.Key)
 	request.Header.Add("CB-ACCESS-SIGN", signature)
 	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
-	request.Header.Add("CB-ACCESS-PASSPHRASE", passphrase)
+	request.Header.Add("CB-ACCESS-PASSPHRASE", private.Passphrase)
+	
+	response, err := client.Do(request)
+	ok(err)
+	body, err := ioutil.ReadAll(response.Body)
+	ok(err)
+	response.Body.Close()
+	
+	var decode []interface{}
+	err = json.Unmarshal(body, &decode)
+	if err != nil {
+		var decodeError interface{}
+		err = json.Unmarshal(body, &decodeError)
+		fmt.Println(decodeError)
+		return nil
+	}
+	profiles := make([]Profile, 0)
+	for _, list := range decode {
+		values := list.(map[string]interface{})
+		profile := Profile{}
+		profile.ID, _ = values["id"].(string)
+		profile.Currency, _ = values["currency"].(string)
+		profile.Balance, _ = values["balance"].(string)
+		profile.Available, _ = values["available"].(string)
+		profile.Hold, _ = values["hold"].(string)
+		profile.ProfileID, _ = values["profile_id"].(string)
+		profiles = append(profiles, profile)
+	}
+	return profiles
+}
+
+// PlaceOrder send a buy or sell order
+func PlaceOrder(private *Authentication, js string) []Profile {
+	
+	method := post
+	url := api + "/orders"
+	data := json.Marshal(js)
+	
+	client, request := request(method, url, data)
+	
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	
+	message := timestamp + method + url + js
+	base64key, err := base64.StdEncoding.DecodeString(private.Secret)
+	ok(err)
+	hashMessage := hmac.New(sha256.New, base64key)
+	_, err = hashMessage.Write([]byte(message))
+	ok(err)
+	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
+	
+	request.Header.Add("CB-ACCESS-KEY", private.Key)
+	request.Header.Add("CB-ACCESS-SIGN", signature)
+	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
+	request.Header.Add("CB-ACCESS-PASSPHRASE", private.Passphrase)
 	
 	response, err := client.Do(request)
 	ok(err)

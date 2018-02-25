@@ -33,7 +33,7 @@ func Average(values []float64) float64 {
     for i := 0; i < count; i++ {
         average += values[i]
     }
-    return average / count
+    return average / float64(count)
 }
 
 func SimpleMovingAverage(periods int, history []historian.Period) ([]float64) {

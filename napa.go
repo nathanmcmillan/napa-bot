@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"./decoding"
+	"./parse"
 	"./analyst"
 	"./gdax"
 	"./historian"
@@ -197,15 +197,23 @@ func main() {
 	public := getFile("./public.json")
 	fmt.Println(public)
 	
-	var analysis = analyst.Analyst{}
-	analysis.TimeInterval = decoding.GetInteger(public, "interval")
-	analysis.EmaShort = decoding.GetInteger(public, "ema-short")
-	analysis.EmaLong = decoding.GetInteger(public, "ema-long")
-	analysis.RsiPeriods = decoding.GetInteger(public, "rsi")
+	private := getFile("../private.json")
+	fmt.Println(private)
 	
+	analysis := analyst.Analyst{}
+	analysis.TimeInterval = parse.Integer(public, "interval")
+	analysis.EmaShort = parse.Integer(public, "ema-short")
+	analysis.EmaLong = parse.Integer(public, "ema-long")
+	analysis.RsiPeriods = parse.Integer(public, "rsi")
 	fmt.Println(analysis)
 	
-	gdax.GetAccounts()
+	auth := gdax.Authentication{}
+	auth.Key = parse.Text(private, "key")
+	auth.Secret = parse.Text(private, "secret")
+	auth.Passphrase = parse.Text(private, "passphrase")
+	fmt.Println(auth)
+	
+	gdax.GetAccounts(&auth)
 }
 
 func sleep(seconds int32) {
