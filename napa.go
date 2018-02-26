@@ -52,31 +52,38 @@ func app() {
 	// db.Close()
 }
 
-func install() {
+func install() (error) {
 	fmt.Println("deleting database if exists")
-	e := os.Remove(databaseName)
-	if e != nil && !os.IsNotExist(e) {
-		panic(e)
+	err := os.Remove(databaseName)
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	fmt.Println("creating database")
-	db, e := sql.Open(databaseDriver, databaseName)
-	ok(e)
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		return err
+	}
 	historian.CreateDb(db)
 	db.Close()
+	return nil
 }
 
 func indexPage(writer http.ResponseWriter, request *http.Request) {
 	writer.Write(contents)
 }
 
-func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *listenLock) {
+func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *listenLock) (error) {
 	fmt.Println("connecting to exchange")
 	url := "wss://ws-feed.gdax.com"
 	connection, _, err := websocket.DefaultDialer.Dial(url, nil)
-	ok(err)
+	if err != nil {
+		return err
+	}
 	js := json.RawMessage(`{"type":"subscribe", "product_ids":["BTC-USD"], "channels":["ticker"]}`)
 	err = connection.WriteJSON(js)
-	ok(err)
+	if err != nil {
+		return err
+	}
 	fmt.Println("listening to exchange")
 	for {
 		var proceed bool
@@ -111,6 +118,7 @@ func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *list
 	}
 	connection.Close()
 	fmt.Println("exchange connection closed")
+	return nil
 }
 
 func clientWrite(connection *websocket.Conn, lock *sync.Mutex, rawJs string) {
@@ -194,10 +202,16 @@ func main() {
 	http.HandleFunc("/websocket", clientSocket)
 	http.ListenAndServe(":80", nil)*/
 	
-	public := getFile("./public.json")
+	public, err := getFile("./public.json")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(public)
 	
-	private := getFile("../private.json")
+	private, err := getFile("../private.json")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(private)
 	
 	analysis := analyst.Analyst{}
@@ -220,20 +234,20 @@ func sleep(seconds int32) {
 	time.Sleep(time.Second * time.Duration(seconds))
 }
 
-func ok(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func getFile(path string) map[string]interface{} {
+func getFile(path string) (map[string]interface{}, error) {
 	file, err := os.Open(path)
-	ok(err)
+	if err != nil {
+		return nil, err
+	}
 	contents, err := ioutil.ReadAll(file)
-	ok(err)
+	if err != nil {
+		return nil, err
+	}
 	var decode interface{}
 	err = json.Unmarshal(contents, &decode)
-	ok(err)
+	if err != nil {
+		return nil, err
+	}
 	js, _ := decode.(map[string]interface{})
-	return js
+	return js, nil
 }
