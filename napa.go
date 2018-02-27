@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
+	"./analyst"
+	"./gdax"
 	"./historian"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
@@ -26,7 +27,8 @@ const (
 )
 
 var (
-	contents []byte
+	indexFileHTML []byte
+	indexFileJS   []byte
 )
 
 func app() {
@@ -62,8 +64,12 @@ func install() {
 	db.Close()
 }
 
-func indexPage(writer http.ResponseWriter, request *http.Request) {
-	writer.Write(contents)
+func indexHTML(writer http.ResponseWriter, request *http.Request) {
+	writer.Write(indexFileHTML)
+}
+
+func indexJS(writer http.ResponseWriter, request *http.Request) {
+	writer.Write(indexFileJS)
 }
 
 func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *listenLock) {
@@ -180,20 +186,65 @@ func clientSocket(writer http.ResponseWriter, request *http.Request) {
 func main() {
 	fmt.Println("napa bot")
 
-	fmt.Println("loading files")
+	/*fmt.Println("loading files")
 	file, err := os.Open("napa.html")
 	ok(err)
-	contents, err = ioutil.ReadAll(file)
+	indexFileHTML, err = ioutil.ReadAll(file)
+	ok(err)
+
+	file, err = os.Open("napa.js")
+	ok(err)
+	indexFileJS, err = ioutil.ReadAll(file)
 	ok(err)
 
 	fmt.Println("listening and serving")
-	http.HandleFunc("/", indexPage)
+	http.HandleFunc("/", indexHTML)
+	http.HandleFunc("/napa.js", indexJS)
 	http.HandleFunc("/websocket", clientSocket)
-	http.ListenAndServe(":80", nil)
+	http.ListenAndServe(":80", nil)*/
+
+	/*products := []string{"BTC-USD"}
+	channels := []string{"ticker"}
+	gdax.ExchangeSocket(products, channels)*/
+
+	db, e := sql.Open(databaseDriver, databaseName)
+	ok(e)
+
+	product := "BTC-USD"
+	hour := "3600"
+	hours := 2
+
+	last := time.Now().Add(-time.Hour * time.Duration(hours)).Format(time.RFC3339)
+	now := time.Now().Format(time.RFC3339)
+
+	history := gdax.GetHistory(product, last, now, hour)
+	historian.ArchiveBtcUsd(db, history)
+
+	interval := int64(1800)
+	from := time.Now().Add(-time.Hour * time.Duration(hours)).Unix()
+	to := time.Now().Unix()
+	periods := historian.GetBtcUsd(db, interval, from, to)
+
+	emaShort := 6
+	emaLong := 12
+	fmt.Println("MACD", analyst.MovingAverageConvergenceDivergence(emaShort, emaLong, periods))
+
+	rsiPeriods := 7
+	fmt.Println("RSI", analyst.RelativeStrengthIndex(rsiPeriods, periods))
+
+	db.Close()
 }
 
 func sleep(seconds int32) {
 	time.Sleep(time.Second * time.Duration(seconds))
+}
+
+func getISO8601(year, month, day int) string {
+	return "Z"
+}
+
+func getUnix(year, month, day int) int64 {
+	return 1
 }
 
 func ok(e error) {

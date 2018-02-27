@@ -8,56 +8,6 @@
         <button onclick="buy()">buy</button>
         <div id="status"></div>
         <div id="out"></div>
-        <script>
-            const canvas = document.createElement('canvas');
-            document.body.appendChild(canvas);
-            
-            const status = document.getElementById('status');
-            const out = document.getElementById('out');
-            const socket = new WebSocket('ws://localhost:80/websocket');
-            socket.onopen = function(event) {
-                status.innerHTML = 'listening';
-            };
-            socket.onmessage = function(event) {
-                if (event.data === null) {
-                    return;
-                }
-                let js = JSON.parse(event.data);
-                switch (js.uid) {
-                    case 'ticker':
-                        out.innerHTML += '<p>' + js.uid + ', ' + js.time  + ', ' + js.product_id + ', ' + js.price + ', ' + js.side + '</p>';
-                        break;
-                    case 'log':
-                        out.innerHTML += '<p>' + js.message + '</p>';
-                        break;
-                }
-            };
-            socket.onerror = function(event) {
-                status.innerHTML += '<p>error ' + event.data + '</p>';
-            };
-            socket.onclose = function() {
-                status.innerHTML = 'closed';
-                socket = null;
-            };
-            function buy() {
-                if (no()) return;
-                socket.send(`{}`);
-            }
-            function subscribe() {
-                if (no()) return;
-                socket.send(`{"uid":"sub-exchange"}`);
-            }
-            function unsubscribe() {
-                if (no()) return;
-                socket.send(`{"uid":"unsub-exchange"}`);
-            }
-            function no() {
-                if (socket === null) {
-                    status.innerHTML = 'must be connected to napa server';
-                    return true;
-                }
-                return false;
-            }
-        </script>
+        <script src="napa.js"></script>
     <body>
 </html>
