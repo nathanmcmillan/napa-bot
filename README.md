@@ -1,2 +1,2 @@
 # napa-bot
-coin market trader
+coin exchange trader

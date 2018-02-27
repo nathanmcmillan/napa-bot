@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"./analyst"
 	"./gdax"
 	"./historian"
+	"./parse"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -51,17 +53,20 @@ func app() {
 	// db.Close()
 }
 
-func install() {
+func install() error {
 	fmt.Println("deleting database if exists")
-	e := os.Remove(databaseName)
-	if e != nil && !os.IsNotExist(e) {
-		panic(e)
+	err := os.Remove(databaseName)
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	fmt.Println("creating database")
-	db, e := sql.Open(databaseDriver, databaseName)
-	ok(e)
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		return err
+	}
 	historian.CreateDb(db)
 	db.Close()
+	return nil
 }
 
 func indexHTML(writer http.ResponseWriter, request *http.Request) {
@@ -72,14 +77,18 @@ func indexJS(writer http.ResponseWriter, request *http.Request) {
 	writer.Write(indexFileJS)
 }
 
-func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *listenLock) {
+func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *listenLock) error {
 	fmt.Println("connecting to exchange")
 	url := "wss://ws-feed.gdax.com"
 	connection, _, err := websocket.DefaultDialer.Dial(url, nil)
-	ok(err)
+	if err != nil {
+		return err
+	}
 	js := json.RawMessage(`{"type":"subscribe", "product_ids":["BTC-USD"], "channels":["ticker"]}`)
 	err = connection.WriteJSON(js)
-	ok(err)
+	if err != nil {
+		return err
+	}
 	fmt.Println("listening to exchange")
 	for {
 		var proceed bool
@@ -114,6 +123,7 @@ func exchangeSocket(clientSocket *websocket.Conn, lock *sync.Mutex, listen *list
 	}
 	connection.Close()
 	fmt.Println("exchange connection closed")
+	return nil
 }
 
 func clientWrite(connection *websocket.Conn, lock *sync.Mutex, rawJs string) {
@@ -207,8 +217,10 @@ func main() {
 	channels := []string{"ticker"}
 	gdax.ExchangeSocket(products, channels)*/
 
-	db, e := sql.Open(databaseDriver, databaseName)
-	ok(e)
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		panic(err)
+	}
 
 	product := "BTC-USD"
 	hour := "3600"
@@ -217,22 +229,55 @@ func main() {
 	last := time.Now().Add(-time.Hour * time.Duration(hours)).Format(time.RFC3339)
 	now := time.Now().Format(time.RFC3339)
 
-	history := gdax.GetHistory(product, last, now, hour)
+	history, err := gdax.GetHistory(product, last, now, hour)
+	if err != nil {
+		panic(err)
+	}
 	historian.ArchiveBtcUsd(db, history)
 
 	interval := int64(1800)
 	from := time.Now().Add(-time.Hour * time.Duration(hours)).Unix()
 	to := time.Now().Unix()
-	periods := historian.GetBtcUsd(db, interval, from, to)
+	candles, err := historian.GetBtcUsd(db, interval, from, to)
+	if err != nil {
+		panic(err)
+	}
 
 	emaShort := 6
 	emaLong := 12
-	fmt.Println("MACD", analyst.MovingAverageConvergenceDivergence(emaShort, emaLong, periods))
+	fmt.Println("MACD", analyst.Macd(emaShort, emaLong, candles))
 
 	rsiPeriods := 7
-	fmt.Println("RSI", analyst.RelativeStrengthIndex(rsiPeriods, periods))
+	fmt.Println("RSI", analyst.Rsi(rsiPeriods, candles))
 
 	db.Close()
+
+	public, err := getFile("./public.json")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(public)
+
+	private, err := getFile("../private.json")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(private)
+
+	analysis := analyst.Analyst{}
+	analysis.TimeInterval = parse.Integer(public, "interval")
+	analysis.EmaShort = parse.Integer(public, "ema-short")
+	analysis.EmaLong = parse.Integer(public, "ema-long")
+	analysis.RsiPeriods = parse.Integer(public, "rsi")
+	fmt.Println(analysis)
+
+	auth := gdax.Authentication{}
+	auth.Key = parse.Text(private, "key")
+	auth.Secret = parse.Text(private, "secret")
+	auth.Passphrase = parse.Text(private, "passphrase")
+	fmt.Println(auth)
+
+	gdax.GetAccounts(&auth)
 }
 
 func sleep(seconds int32) {
@@ -247,8 +292,20 @@ func getUnix(year, month, day int) int64 {
 	return 1
 }
 
-func ok(e error) {
-	if e != nil {
-		panic(e)
+func getFile(path string) (map[string]interface{}, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
+	contents, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	var decode interface{}
+	err = json.Unmarshal(contents, &decode)
+	if err != nil {
+		return nil, err
+	}
+	js, _ := decode.(map[string]interface{})
+	return js, nil
 }
