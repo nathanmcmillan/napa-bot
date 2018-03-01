@@ -3,6 +3,7 @@ package gdax
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,8 +14,6 @@ import (
 	"encoding/base64"
 	"strconv"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 const (
@@ -70,6 +69,14 @@ type Order struct {
 	Settled       bool
 }
 
+// Ticker update from exchange
+type Ticker struct {
+	Time      string `json:"time"`
+	ProductID string `json:"product_id"`
+	Price     string `json:"price"`
+	Side      string `json:"side"`
+}
+
 func request(method, url string, body io.Reader) (*http.Client, *http.Request, error) {
 	client := &http.Client{}
 	request, err := http.NewRequest(method, url, body)
@@ -82,8 +89,8 @@ func request(method, url string, body io.Reader) (*http.Client, *http.Request, e
 	return client, request, nil
 }
 
-func getRequest(url string) ([]byte, error) {
-	client, request, err := request(get, url, nil)
+func publicRequest(method, url string) ([]byte, error) {
+	client, request, err := request(method, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -91,17 +98,53 @@ func getRequest(url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	body, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	return ioutil.ReadAll(response.Body)
+}
+
+func privateRequest(method, site, path, body string, auth *Authentication) ([]byte, error) {
+	var data io.Reader
+	if body != "" {
+		message, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		data = bytes.NewReader(message)
+	}
+
+	client, request, err := request(method, site+path, data)
 	if err != nil {
 		return nil, err
 	}
-	response.Body.Close()
-	return body, nil
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	what := timestamp + method + path + body
+	base64key, err := base64.StdEncoding.DecodeString(auth.Secret)
+	if err != nil {
+		return nil, err
+	}
+	hashMessage := hmac.New(sha256.New, base64key)
+	_, err = hashMessage.Write([]byte(what))
+	if err != nil {
+		return nil, err
+	}
+	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
+
+	request.Header.Add("CB-ACCESS-KEY", auth.Key)
+	request.Header.Add("CB-ACCESS-SIGN", signature)
+	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
+	request.Header.Add("CB-ACCESS-PASSPHRASE", auth.Passphrase)
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	return ioutil.ReadAll(response.Body)
 }
 
 // GetCurrencies list of currencies
 func GetCurrencies() (interface{}, error) {
-	body, err := getRequest(api + "/currencies")
+	body, err := publicRequest(get, api+"/currencies")
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +158,7 @@ func GetCurrencies() (interface{}, error) {
 
 // GetBook map of level 2 product books
 func GetBook(product string) (interface{}, error) {
-	body, err := getRequest(api + "/products/" + product + "/book?level=2")
+	body, err := publicRequest(get, api+"/products/"+product+"/book?level=2")
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +172,7 @@ func GetBook(product string) (interface{}, error) {
 
 // GetTicker map of product ticker
 func GetTicker(product string) (interface{}, error) {
-	body, err := getRequest(api + "/products/" + product + "/ticker")
+	body, err := publicRequest(get, api+"/products/"+product+"/ticker")
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +186,7 @@ func GetTicker(product string) (interface{}, error) {
 
 // GetTrades map of product trades
 func GetTrades(product string) (interface{}, error) {
-	body, err := getRequest(api + "/products/" + product + "/trades")
+	body, err := publicRequest(get, api+"/products/"+product+"/trades")
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +200,7 @@ func GetTrades(product string) (interface{}, error) {
 
 // GetHistory list of candles for product history
 func GetHistory(product, start, end, granularity string) ([]Candle, error) {
-	body, err := getRequest(api + "/products/" + product + "/candles?start=" + start + "&end=" + end + "&granularity=" + granularity)
+	body, err := publicRequest(get, api+"/products/"+product+"/candles?start="+start+"&end="+end+"&granularity="+granularity)
 	if err != nil {
 		return nil, err
 	}
@@ -167,15 +210,19 @@ func GetHistory(product, start, end, granularity string) ([]Candle, error) {
 		return nil, err
 	}
 	candles := make([]Candle, 0)
-	for _, list := range decode {
-		values := list.([]interface{})
+	for i := 0; i < len(decode); i++ {
+		values, ok := decode[i].([]interface{})
+		if !ok {
+			return nil, errors.New("not a list")
+		}
 		candle := Candle{}
-		candle.Time = values[0].(float64)
-		candle.Low = values[1].(float64)
-		candle.High = values[2].(float64)
-		candle.Open = values[3].(float64)
-		candle.Closing = values[4].(float64)
-		candle.Volume = values[5].(float64)
+		candle.Time, _ = values[0].(float64)
+		candle.Low, _ = values[1].(float64)
+		candle.High, _ = values[2].(float64)
+		candle.Open, _ = values[3].(float64)
+		candle.Closing, _ = values[4].(float64)
+		candle.Volume, _ = values[5].(float64)
+
 		candles = append(candles, candle)
 	}
 	return candles, nil
@@ -183,7 +230,7 @@ func GetHistory(product, start, end, granularity string) ([]Candle, error) {
 
 // GetStats map of 24 hour product statistics
 func GetStats(product string) (interface{}, error) {
-	body, err := getRequest(api + "/products/" + product + "/stats")
+	body, err := publicRequest(get, api+"/products/"+product+"/stats")
 	if err != nil {
 		return nil, err
 	}
@@ -195,118 +242,12 @@ func GetStats(product string) (interface{}, error) {
 	return decode, nil
 }
 
-// ExchangeSocket dials websocket to exchange
-func ExchangeSocket(products, channels []string) error {
-	fmt.Println("connecting to exchange")
-	connection, _, err := websocket.DefaultDialer.Dial(apiSocket, nil)
-	if err != nil {
-		return err
-	}
-
-	var productList bytes.Buffer
-	numProducts := len(products)
-	for i := 0; i < numProducts; i++ {
-		productList.WriteString(`"`)
-		productList.WriteString(products[i])
-		productList.WriteString(`"`)
-		if i+1 < numProducts {
-			productList.WriteString(`, `)
-		}
-	}
-
-	var channelList bytes.Buffer
-	numChannels := len(channels)
-	for i := 0; i < numChannels; i++ {
-		channelList.WriteString(`"`)
-		channelList.WriteString(channels[i])
-		channelList.WriteString(`"`)
-		if i+1 < numChannels {
-			channelList.WriteString(`, `)
-		}
-	}
-
-	rawJs := fmt.Sprintf(`{"type":"subscribe", "product_ids":[%s], "channels":[%s]}`, productList.String(), channelList.String())
-	js := json.RawMessage(rawJs)
-	err = connection.WriteJSON(js)
-	if err != nil {
-		return err
-	}
-	fmt.Println("listening to exchange")
-	for {
-
-		var js interface{}
-		err := connection.ReadJSON(&js)
-		if err != nil {
-			fmt.Println(err)
-			break
-		}
-		message, ok := js.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		messageType, ok := message["type"].(string)
-		if !ok {
-			continue
-		}
-		switch messageType {
-		case "ticker":
-			time, _ := message["time"].(string)
-			productID, _ := message["product_id"].(string)
-			price, _ := message["price"].(string)
-			side, _ := message["side"].(string)
-			fmt.Println(fmt.Sprintf(`{"uid":"ticker", "time":"%s", "product_id":"%s", "price":"%s", "side":"%s"}`, time, productID, price, side))
-		case "snapshot":
-			productID, _ := message["product_id"].(string)
-			fmt.Println(fmt.Sprintf(`{"uid":"snapshot", "product_id":"%s"}`, productID))
-		case "l2update":
-			productID, _ := message["product_id"].(string)
-			fmt.Println(fmt.Sprintf(`{"uid":"l2update", "product_id":"%s"}`, productID))
-		}
-	}
-	connection.Close()
-	fmt.Println("exchange connection closed")
-	return nil
-}
-
 // GetAccounts map of account balances
 func GetAccounts(private *Authentication) ([]Profile, error) {
-
-	method := get
-	url := api + "/accounts"
-
-	client, request, err := request(method, url, nil)
+	body, err := privateRequest(get, api, "/accounts", "", private)
 	if err != nil {
 		return nil, err
 	}
-
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	message := timestamp + method + url
-	base64key, err := base64.StdEncoding.DecodeString(private.Secret)
-	if err != nil {
-		return nil, err
-	}
-	hashMessage := hmac.New(sha256.New, base64key)
-	_, err = hashMessage.Write([]byte(message))
-	if err != nil {
-		return nil, err
-	}
-	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
-
-	request.Header.Add("CB-ACCESS-KEY", private.Key)
-	request.Header.Add("CB-ACCESS-SIGN", signature)
-	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
-	request.Header.Add("CB-ACCESS-PASSPHRASE", private.Passphrase)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	response.Body.Close()
-
 	var decode []interface{}
 	err = json.Unmarshal(body, &decode)
 	if err != nil {
@@ -316,8 +257,11 @@ func GetAccounts(private *Authentication) ([]Profile, error) {
 		return nil, err
 	}
 	profiles := make([]Profile, 0)
-	for _, list := range decode {
-		values := list.(map[string]interface{})
+	for i := 0; i < len(decode); i++ {
+		values, ok := decode[i].(map[string]interface{})
+		if !ok {
+			return nil, errors.New("parse error")
+		}
 		profile := Profile{}
 		profile.ID, _ = values["id"].(string)
 		profile.Currency, _ = values["currency"].(string)
@@ -325,6 +269,7 @@ func GetAccounts(private *Authentication) ([]Profile, error) {
 		profile.Available, _ = values["available"].(string)
 		profile.Hold, _ = values["hold"].(string)
 		profile.ProfileID, _ = values["profile_id"].(string)
+
 		profiles = append(profiles, profile)
 	}
 	return profiles, nil
@@ -332,46 +277,14 @@ func GetAccounts(private *Authentication) ([]Profile, error) {
 
 // PlaceOrder send a buy or sell order
 func PlaceOrder(private *Authentication, js string) ([]Profile, error) {
-	method := post
-	url := api + "/orders"
-	data, err := json.Marshal(js)
+	if js != "" {
+		fmt.Println("not yet")
+		return nil, nil
+	}
+	body, err := privateRequest(post, api, "/orders", js, private)
 	if err != nil {
 		return nil, err
 	}
-
-	client, request, err := request(method, url, bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	message := timestamp + method + url + js
-	base64key, err := base64.StdEncoding.DecodeString(private.Secret)
-	if err != nil {
-		return nil, err
-	}
-	hashMessage := hmac.New(sha256.New, base64key)
-	_, err = hashMessage.Write([]byte(message))
-	if err != nil {
-		return nil, err
-	}
-	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
-
-	request.Header.Add("CB-ACCESS-KEY", private.Key)
-	request.Header.Add("CB-ACCESS-SIGN", signature)
-	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
-	request.Header.Add("CB-ACCESS-PASSPHRASE", private.Passphrase)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	response.Body.Close()
-
 	var decode []interface{}
 	err = json.Unmarshal(body, &decode)
 	if err != nil {
@@ -390,49 +303,18 @@ func PlaceOrder(private *Authentication, js string) ([]Profile, error) {
 		profile.Available, _ = values["available"].(string)
 		profile.Hold, _ = values["hold"].(string)
 		profile.ProfileID, _ = values["profile_id"].(string)
+
 		profiles = append(profiles, profile)
 	}
 	return profiles, nil
 }
 
 // ListOrders get open orders
-func ListOrders(private *Authentication) ([]Profile, error) {
-	method := get
-	url := api + "/orders"
-
-	client, request, err := request(method, url, nil)
+func ListOrders(private *Authentication) ([]Order, error) {
+	body, err := privateRequest(get, api, "/orders", "", private)
 	if err != nil {
 		return nil, err
 	}
-
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	message := timestamp + method + url
-	base64key, err := base64.StdEncoding.DecodeString(private.Secret)
-	if err != nil {
-		return nil, err
-	}
-	hashMessage := hmac.New(sha256.New, base64key)
-	_, err = hashMessage.Write([]byte(message))
-	if err != nil {
-		return nil, err
-	}
-	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
-
-	request.Header.Add("CB-ACCESS-KEY", private.Key)
-	request.Header.Add("CB-ACCESS-SIGN", signature)
-	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
-	request.Header.Add("CB-ACCESS-PASSPHRASE", private.Passphrase)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	response.Body.Close()
-
 	var decode []interface{}
 	err = json.Unmarshal(body, &decode)
 	if err != nil {
@@ -441,17 +323,30 @@ func ListOrders(private *Authentication) ([]Profile, error) {
 		fmt.Println(decodeError)
 		return nil, err
 	}
-	profiles := make([]Profile, 0)
-	for _, list := range decode {
-		values := list.(map[string]interface{})
-		profile := Profile{}
-		profile.ID, _ = values["id"].(string)
-		profile.Currency, _ = values["currency"].(string)
-		profile.Balance, _ = values["balance"].(string)
-		profile.Available, _ = values["available"].(string)
-		profile.Hold, _ = values["hold"].(string)
-		profile.ProfileID, _ = values["profile_id"].(string)
-		profiles = append(profiles, profile)
+	orders := make([]Order, 0)
+	for i := 0; i < len(decode); i++ {
+		values, ok := decode[i].(map[string]interface{})
+		if !ok {
+			return nil, errors.New("parse error")
+		}
+		order := Order{}
+		order.ID, _ = values["id"].(string)
+		order.Price, _ = values["price"].(string)
+		order.Size, _ = values["size"].(string)
+		order.Product, _ = values["product_id"].(string)
+		order.Side, _ = values["side"].(string)
+		order.Stp, _ = values["stp"].(string)
+		order.Type, _ = values["type"].(string)
+		order.TimeInForce, _ = values["time_in_force"].(string)
+		order.PostOnly, _ = values["post_only"].(bool)
+		order.CreatedAt, _ = values["created_at"].(string)
+		order.FillFees, _ = values["fill_fees"].(string)
+		order.FilledSize, _ = values["filled_size"].(string)
+		order.ExecutedValue, _ = values["executed_value"].(string)
+		order.Status, _ = values["status"].(string)
+		order.Settled, _ = values["settled"].(bool)
+
+		orders = append(orders, order)
 	}
-	return profiles, nil
+	return orders, nil
 }

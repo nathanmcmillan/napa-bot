@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	"./analyst"
 	"./gdax"
 	"./historian"
 	"./parse"
+	"./trader"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -26,6 +26,7 @@ type listenLock struct {
 const (
 	databaseDriver = "sqlite3"
 	databaseName   = "./napa.db"
+	databaseSQL    = "./napa.sql"
 )
 
 var (
@@ -33,40 +34,47 @@ var (
 	indexFileJS   []byte
 )
 
-func app() {
-	// db, e := sql.Open(databaseDriver, databaseName)
-	// ok(e)
-
-	/* history := gdax.GetHistory("BTC-USD", "2018-02-17", "2018-02-18", "3600")
-	historian.ArchiveBtcUsd(db, history)
-	periods := historian.GetBtcUsd(db)
-	fmt.Println("MACD", analyst.MovingAverageConvergenceDivergence(6, 12, periods))
-	fmt.Println("RSI", analyst.RelativeStrengthIndex(7, periods)) */
-
-	/* gdax.GetCurrencies()
-		gdax.GetBook(product)
-		gdax.GetTicker(product)
-		gdax.GetTrades(product)
-	 	gdax.GetHistory(product, "2018-02-16", "2018-02-17", "3600")
-		gdax.GetStats(product) */
-
-	// db.Close()
-}
-
-func install() error {
+func install() {
 	fmt.Println("deleting database if exists")
 	err := os.Remove(databaseName)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		panic(err)
 	}
 	fmt.Println("creating database")
 	db, err := sql.Open(databaseDriver, databaseName)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	historian.CreateDb(db)
-	db.Close()
-	return nil
+	defer db.Close()
+	err = historian.RunFile(db, databaseSQL)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func server() {
+	fmt.Println("loading files")
+	file, err := os.Open("napa.html")
+	if err != nil {
+		panic(err)
+	}
+	indexFileHTML, err = ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+	file, err = os.Open("napa.js")
+	if err != nil {
+		panic(err)
+	}
+	indexFileJS, err = ioutil.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("listening and serving")
+	http.HandleFunc("/", indexHTML)
+	http.HandleFunc("/napa.js", indexJS)
+	http.HandleFunc("/websocket", clientSocket)
+	http.ListenAndServe(":80", nil)
 }
 
 func indexHTML(writer http.ResponseWriter, request *http.Request) {
@@ -193,105 +201,6 @@ func clientSocket(writer http.ResponseWriter, request *http.Request) {
 	go clientRead(connection)
 }
 
-func main() {
-	fmt.Println("napa bot")
-
-	/*fmt.Println("loading files")
-	file, err := os.Open("napa.html")
-	ok(err)
-	indexFileHTML, err = ioutil.ReadAll(file)
-	ok(err)
-
-	file, err = os.Open("napa.js")
-	ok(err)
-	indexFileJS, err = ioutil.ReadAll(file)
-	ok(err)
-
-	fmt.Println("listening and serving")
-	http.HandleFunc("/", indexHTML)
-	http.HandleFunc("/napa.js", indexJS)
-	http.HandleFunc("/websocket", clientSocket)
-	http.ListenAndServe(":80", nil)*/
-
-	/*products := []string{"BTC-USD"}
-	channels := []string{"ticker"}
-	gdax.ExchangeSocket(products, channels)*/
-
-	db, err := sql.Open(databaseDriver, databaseName)
-	if err != nil {
-		panic(err)
-	}
-
-	product := "BTC-USD"
-	hour := "3600"
-	hours := 2
-
-	last := time.Now().Add(-time.Hour * time.Duration(hours)).Format(time.RFC3339)
-	now := time.Now().Format(time.RFC3339)
-
-	history, err := gdax.GetHistory(product, last, now, hour)
-	if err != nil {
-		panic(err)
-	}
-	historian.ArchiveBtcUsd(db, history)
-
-	interval := int64(1800)
-	from := time.Now().Add(-time.Hour * time.Duration(hours)).Unix()
-	to := time.Now().Unix()
-	candles, err := historian.GetBtcUsd(db, interval, from, to)
-	if err != nil {
-		panic(err)
-	}
-
-	emaShort := 6
-	emaLong := 12
-	fmt.Println("MACD", analyst.Macd(emaShort, emaLong, candles))
-
-	rsiPeriods := 7
-	fmt.Println("RSI", analyst.Rsi(rsiPeriods, candles))
-
-	db.Close()
-
-	public, err := getFile("./public.json")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(public)
-
-	private, err := getFile("../private.json")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(private)
-
-	analysis := analyst.Analyst{}
-	analysis.TimeInterval = parse.Integer(public, "interval")
-	analysis.EmaShort = parse.Integer(public, "ema-short")
-	analysis.EmaLong = parse.Integer(public, "ema-long")
-	analysis.RsiPeriods = parse.Integer(public, "rsi")
-	fmt.Println(analysis)
-
-	auth := gdax.Authentication{}
-	auth.Key = parse.Text(private, "key")
-	auth.Secret = parse.Text(private, "secret")
-	auth.Passphrase = parse.Text(private, "passphrase")
-	fmt.Println(auth)
-
-	gdax.GetAccounts(&auth)
-}
-
-func sleep(seconds int32) {
-	time.Sleep(time.Second * time.Duration(seconds))
-}
-
-func getISO8601(year, month, day int) string {
-	return "Z"
-}
-
-func getUnix(year, month, day int) int64 {
-	return 1
-}
-
 func getFile(path string) (map[string]interface{}, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -308,4 +217,59 @@ func getFile(path string) (map[string]interface{}, error) {
 	}
 	js, _ := decode.(map[string]interface{})
 	return js, nil
+}
+
+func main() {
+	fmt.Println("napa bot")
+
+	if len(os.Args) > 1 {
+		if os.Args[1] == "install" {
+			install()
+		} else if os.Args[1] == "server" {
+			server()
+		}
+		return
+	}
+
+	// load files
+	public, err := getFile("./public.json")
+	if err != nil {
+		panic(err)
+	}
+
+	private, err := getFile("../private.json")
+	if err != nil {
+		panic(err)
+	}
+
+	analysis := &analyst.Analyst{}
+	analysis.TimeInterval = parse.Integer(public, "interval")
+	analysis.EmaShort = parse.Integer(public, "ema-short")
+	analysis.EmaLong = parse.Integer(public, "ema-long")
+	analysis.RsiPeriods = parse.Integer(public, "rsi")
+
+	auth := &gdax.Authentication{}
+	auth.Key = parse.Text(private, "key")
+	auth.Secret = parse.Text(private, "secret")
+	auth.Passphrase = parse.Text(private, "phrase")
+
+	// database
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	// connect to exchange
+	messages := make(chan interface{})
+	products := []string{"BTC-USD"}
+	channels := []string{"ticker"}
+	go gdax.ExchangeSocket(products, channels, messages)
+
+	settings := &gdax.Poll{}
+	settings.OrderTime = 2
+	settings.HistoryTime = 4
+	go gdax.Polling(settings, auth, messages)
+
+	trader.Run(analysis, db, auth, messages)
 }

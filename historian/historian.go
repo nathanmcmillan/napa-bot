@@ -2,8 +2,11 @@ package historian
 
 import (
 	"database/sql"
-
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 
 	"../gdax"
 )
@@ -33,7 +36,7 @@ func exec(db *sql.DB, query string) error {
 	return err
 }
 
-func getId(db *sql.DB, query string) (int64, error) {
+func getID(db *sql.DB, query string) (int64, error) {
 	statement, err := db.Prepare(query)
 	if err != nil {
 		return 0, err
@@ -49,18 +52,23 @@ func getId(db *sql.DB, query string) (int64, error) {
 	return id, nil
 }
 
-func CreateDb(db *sql.DB) error {
-	err := exec(db, "create table accounts (id integer primary key autoincrement, funds real);")
+// RunFile executes all sql statements
+func RunFile(db *sql.DB, path string) error {
+	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	err = exec(db, "create table book (product text, unix integer, buy integer, price real, size real, complete integer);")
+	contents, err := ioutil.ReadAll(file)
 	if err != nil {
 		return err
 	}
-	products := []string{"btc_usd, eth_usd, ltc_usd"}
-	for i := 0; i < len(products); i++ {
-		err = exec(db, fmt.Sprintf("create table %s (unix integer unique, low real, high real, open real, closing real, volume real);", products[i]))
+	statements := strings.Split(string(contents), ";")
+	for i := 0; i < len(statements); i++ {
+		query := strings.TrimSpace(statements[i])
+		if query == "" {
+			continue
+		}
+		err = exec(db, query)
 		if err != nil {
 			return err
 		}
@@ -68,10 +76,12 @@ func CreateDb(db *sql.DB) error {
 	return nil
 }
 
+// NewAccount create database account
 func NewAccount(db *sql.DB) (int64, error) {
-	return getId(db, "insert into accounts default values")
+	return getID(db, "insert into accounts default values")
 }
 
+// GetAccounts get list of accounts from database
 func GetAccounts(db *sql.DB) ([]Account, error) {
 	rows, err := db.Query("select * from accounts")
 	if err != nil {
@@ -94,6 +104,7 @@ func GetAccounts(db *sql.DB) ([]Account, error) {
 	return accounts, nil
 }
 
+// ArchiveBtcUsd create database records of btc usd
 func ArchiveBtcUsd(db *sql.DB, candle []gdax.Candle) error {
 	for i := 0; i < len(candle); i++ {
 		statement, err := db.Prepare("insert or ignore into btc_usd(unix, low, high, open, closing, volume) select ?, ?, ?, ?, ?, ?")
@@ -110,12 +121,15 @@ func ArchiveBtcUsd(db *sql.DB, candle []gdax.Candle) error {
 }
 
 // GetBtcUsd queries history of bitcoin
-func GetBtcUsd(db *sql.DB, interval, from, to int64) ([]Candle, error) {
+func GetBtcUsd(db *sql.DB, interval, from, to int64) ([]*Candle, error) {
+	if to < from {
+		return nil, errors.New("bad range")
+	}
 	rows, err := db.Query("select * from btc_usd where unix > ? and unix < ? order by unix", from, to)
 	if err != nil {
 		return nil, err
 	}
-	allCandles := make([]Candle, 0)
+	allCandles := make([]*Candle, 0)
 	var unix int64
 	var low float64
 	var high float64
@@ -127,27 +141,32 @@ func GetBtcUsd(db *sql.DB, interval, from, to int64) ([]Candle, error) {
 		if err != nil {
 			return nil, err
 		}
-		candle := Candle{unix, low, high, open, closing, volume}
+		candle := &Candle{unix, low, high, open, closing, volume}
 		allCandles = append(allCandles, candle)
 	}
 	rows.Close()
 
-	currentUnix := from
-	lastRecordUnix := interval
-	candles := make([]Candle, 0)
+	indexOffset := from / interval
+	numIndices := to/interval - indexOffset
+	candles := make([]*Candle, numIndices)
 
+	fmt.Println(indexOffset, numIndices)
 	for i := 0; i < len(allCandles); i++ {
-		recordUnix := allCandles[i].Time
-		if recordUnix%interval < lastRecordUnix {
-
-			candles = append(candles, allCandles[i])
-
-			currentUnix += interval
-			if currentUnix >= to {
-				break
+		current := allCandles[i]
+		currentIndex := current.Time/interval - indexOffset
+		fmt.Println(currentIndex)
+		if currentIndex < 0 {
+			continue
+		}
+		if currentIndex > numIndices {
+			break
+		}
+		candles[currentIndex] = current
+		for j := i - 1; j > 0; j-- {
+			if candles[j] == nil {
+				candles[j] = current
 			}
 		}
-		lastRecordUnix = recordUnix
 	}
 	return candles, nil
 }
