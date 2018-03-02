@@ -242,11 +242,11 @@ func main() {
 		panic(err)
 	}
 
-	analysis := &analyst.Analyst{}
-	analysis.TimeInterval = parse.Integer(public, "interval")
-	analysis.EmaShort = parse.Integer(public, "ema-short")
-	analysis.EmaLong = parse.Integer(public, "ema-long")
-	analysis.RsiPeriods = parse.Integer(public, "rsi")
+	analyst := &analyst.Analysis{}
+	analyst.TimeInterval = parse.Integer(public, "interval")
+	analyst.EmaShort = parse.Integer(public, "ema-short")
+	analyst.EmaLong = parse.Integer(public, "ema-long")
+	analyst.RsiPeriods = parse.Integer(public, "rsi")
 
 	auth := &gdax.Authentication{}
 	auth.Key = parse.Text(private, "key")
@@ -263,7 +263,7 @@ func main() {
 	// connect to exchange
 	messages := make(chan interface{})
 	products := []string{"BTC-USD"}
-	channels := []string{"ticker"}
+	channels := []string{"ticker", "level2"}
 	go gdax.ExchangeSocket(products, channels, messages)
 
 	settings := &gdax.Poll{}
@@ -271,5 +271,5 @@ func main() {
 	settings.HistoryTime = 4
 	go gdax.Polling(settings, auth, messages)
 
-	trader.Run(analysis, db, auth, messages)
+	trader.Run(analyst, db, auth, messages)
 }

@@ -4,19 +4,12 @@ import (
 	"../historian"
 )
 
-// Analyst market data
-type Analyst struct {
-	TimeInterval  int64
-	RsiPeriods    int64
-	Rsi           []float64
-	EmaShort      int64
-	EmaLong       int64
-	Macd          []float64
-	Ticker        []float64
-	Book          []float64
-	TickerAverage float64
-	BuyAverage    float64
-	SellAverage   float64
+// Analysis market data
+type Analysis struct {
+	TimeInterval int64
+	RsiPeriods   int64
+	EmaShort     int64
+	EmaLong      int64
 }
 
 // PercentChange percent change in value

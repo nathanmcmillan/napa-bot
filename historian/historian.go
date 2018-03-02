@@ -104,13 +104,14 @@ func GetAccounts(db *sql.DB) ([]Account, error) {
 	return accounts, nil
 }
 
-// ArchiveBtcUsd create database records of btc usd
-func ArchiveBtcUsd(db *sql.DB, candle []gdax.Candle) error {
+// ArchiveCoin inserts historical records of coin product
+func ArchiveCoin(table string, db *sql.DB, candle []gdax.Candle) error {
+	query := fmt.Sprintf("insert or ignore into %s(unix, low, high, open, closing, volume) select ?, ?, ?, ?, ?, ?", table)
+	statement, err := db.Prepare(query)
+	if err != nil {
+		return err
+	}
 	for i := 0; i < len(candle); i++ {
-		statement, err := db.Prepare("insert or ignore into btc_usd(unix, low, high, open, closing, volume) select ?, ?, ?, ?, ?, ?")
-		if err != nil {
-			return err
-		}
 		current := candle[i]
 		_, err = statement.Exec(current.Time, current.Low, current.High, current.Open, current.Closing, current.Volume)
 		if err != nil {
@@ -120,12 +121,13 @@ func ArchiveBtcUsd(db *sql.DB, candle []gdax.Candle) error {
 	return nil
 }
 
-// GetBtcUsd queries history of bitcoin
-func GetBtcUsd(db *sql.DB, interval, from, to int64) ([]*Candle, error) {
+// QueryCoin queries history of coin product
+func QueryCoin(table string, db *sql.DB, interval, from, to int64) ([]*Candle, error) {
 	if to < from {
 		return nil, errors.New("bad range")
 	}
-	rows, err := db.Query("select * from btc_usd where unix > ? and unix < ? order by unix", from, to)
+	query := fmt.Sprintf("select * from %s where unix > ? and unix < ? order by unix", table)
+	rows, err := db.Query(query, from, to)
 	if err != nil {
 		return nil, err
 	}

@@ -69,14 +69,6 @@ type Order struct {
 	Settled       bool
 }
 
-// Ticker update from exchange
-type Ticker struct {
-	Time      string `json:"time"`
-	ProductID string `json:"product_id"`
-	Price     string `json:"price"`
-	Side      string `json:"side"`
-}
-
 func request(method, url string, body io.Reader) (*http.Client, *http.Request, error) {
 	client := &http.Client{}
 	request, err := http.NewRequest(method, url, body)
