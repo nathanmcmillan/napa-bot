@@ -4,43 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 )
-
-// Ticker last match from exchange
-type Ticker struct {
-	Time      string
-	ProductID string
-	Price     string
-	Side      string
-}
-
-// Snapshot snapshot of level 2 from exchange
-type Snapshot struct {
-	ProductID string
-	Bids      []SnapshotTuple
-	Asks      []SnapshotTuple
-}
-
-// SnapshotTuple tuple of price and size
-type SnapshotTuple struct {
-	Price string
-	Size  string
-}
-
-// Update level 2 update from exchange
-type Update struct {
-	ProductID string
-	Changes   []UpdateChange
-}
-
-// UpdateChange level 2 update details
-type UpdateChange struct {
-	Side  string
-	Price string
-	Size  string
-}
 
 // ExchangeSocket dials websocket to exchange
 func ExchangeSocket(products, channels []string, messages chan interface{}) error {
@@ -99,17 +66,19 @@ func ExchangeSocket(products, channels []string, messages chan interface{}) erro
 		}
 		switch messageType {
 		case "ticker":
-			rawJs := Ticker{}
-			rawJs.Time, _ = message["time"].(string)
-			rawJs.ProductID, _ = message["product_id"].(string)
-			rawJs.Price, _ = message["price"].(string)
-			rawJs.Side, _ = message["side"].(string)
-			messages <- rawJs
+			ticker := Ticker{}
+			temp, _ := message["time"].(string)
+			ticker.Time, _ = strconv.ParseInt(temp, 10, 64)
+			ticker.ProductID, _ = message["product_id"].(string)
+			temp, _ = message["price"].(string)
+			ticker.Price, _ = strconv.ParseFloat(temp, 64)
+			ticker.Side, _ = message["side"].(string)
+			messages <- ticker
 		case "snapshot":
-			rawJs := Snapshot{}
-			rawJs.ProductID, _ = message["product_id"].(string)
-			rawJs.Bids = make([]SnapshotTuple, 0)
-			rawJs.Asks = make([]SnapshotTuple, 0)
+			snapshot := Snapshot{}
+			snapshot.ProductID, _ = message["product_id"].(string)
+			snapshot.Bids = make([]SnapshotTuple, 0)
+			snapshot.Asks = make([]SnapshotTuple, 0)
 			list, ok := message["bids"].([]interface{})
 			if !ok {
 				continue
@@ -120,9 +89,11 @@ func ExchangeSocket(products, channels []string, messages chan interface{}) erro
 					continue
 				}
 				tuple := SnapshotTuple{}
-				tuple.Price, _ = rawTuple[0].(string)
-				tuple.Size, _ = rawTuple[1].(string)
-				rawJs.Bids = append(rawJs.Bids, tuple)
+				temp, _ := rawTuple[0].(string)
+				tuple.Price, _ = strconv.ParseFloat(temp, 64)
+				temp, _ = rawTuple[1].(string)
+				tuple.Size, _ = strconv.ParseFloat(temp, 64)
+				snapshot.Bids = append(snapshot.Bids, tuple)
 			}
 			list, ok = message["asks"].([]interface{})
 			if !ok {
@@ -134,15 +105,17 @@ func ExchangeSocket(products, channels []string, messages chan interface{}) erro
 					continue
 				}
 				tuple := SnapshotTuple{}
-				tuple.Price, _ = rawTuple[0].(string)
-				tuple.Size, _ = rawTuple[1].(string)
-				rawJs.Asks = append(rawJs.Asks, tuple)
+				temp, _ := rawTuple[0].(string)
+				tuple.Price, _ = strconv.ParseFloat(temp, 64)
+				temp, _ = rawTuple[1].(string)
+				tuple.Size, _ = strconv.ParseFloat(temp, 64)
+				snapshot.Asks = append(snapshot.Asks, tuple)
 			}
-			messages <- rawJs
+			messages <- snapshot
 		case "l2update":
-			rawJs := Update{}
-			rawJs.ProductID, _ = message["product_id"].(string)
-			rawJs.Changes = make([]UpdateChange, 0)
+			update := Update{}
+			update.ProductID, _ = message["product_id"].(string)
+			update.Changes = make([]UpdateChange, 0)
 			list, ok := message["changes"].([]interface{})
 			if !ok {
 				continue
@@ -154,11 +127,13 @@ func ExchangeSocket(products, channels []string, messages chan interface{}) erro
 				}
 				change := UpdateChange{}
 				change.Side, _ = rawChange[0].(string)
-				change.Price, _ = rawChange[1].(string)
-				change.Size, _ = rawChange[2].(string)
-				rawJs.Changes = append(rawJs.Changes, change)
+				temp, _ := rawChange[1].(string)
+				change.Price, _ = strconv.ParseFloat(temp, 64)
+				temp, _ = rawChange[2].(string)
+				change.Size, _ = strconv.ParseFloat(temp, 64)
+				update.Changes = append(update.Changes, change)
 			}
-			messages <- rawJs
+			messages <- update
 		}
 	}
 	return nil

@@ -2,7 +2,6 @@ package gdax
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -13,7 +12,7 @@ type Poll struct {
 }
 
 // Polling sends poll requests to exchange
-func Polling(settings *Poll, auth *Authentication, messages chan interface{}) error {
+func Polling(auth *Authentication, settings *Poll, messages chan interface{}) error {
 	orderTime := time.Second * time.Duration(settings.OrderTime)
 	historyTime := time.Second * time.Duration(settings.HistoryTime)
 	nextOrder := time.Now()
@@ -23,7 +22,6 @@ func Polling(settings *Poll, auth *Authentication, messages chan interface{}) er
 
 		if time.Now().After(nextOrder) {
 			time.Sleep(time.Second)
-			fmt.Println("polling orders")
 			orders, err := ListOrders(auth)
 			if err != nil {
 				panic(err)
@@ -38,7 +36,6 @@ func Polling(settings *Poll, auth *Authentication, messages chan interface{}) er
 
 		if time.Now().After(nextHistory) {
 			time.Sleep(time.Second)
-			fmt.Println("polling history")
 			nextHistory = time.Now().Add(historyTime)
 		}
 	}

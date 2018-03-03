@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"./analyst"
+	"./datastore"
 	"./gdax"
-	"./historian"
 	"./parse"
 	"./trader"
 	"github.com/gorilla/websocket"
@@ -46,7 +46,7 @@ func install() {
 		panic(err)
 	}
 	defer db.Close()
-	err = historian.RunFile(db, databaseSQL)
+	err = datastore.RunFile(db, databaseSQL)
 	if err != nil {
 		panic(err)
 	}
@@ -225,10 +225,12 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] == "install" {
 			install()
-		} else if os.Args[1] == "server" {
-			server()
+			return
 		}
-		return
+		if os.Args[1] == "server" {
+			server()
+			return
+		}
 	}
 
 	// load files
@@ -242,11 +244,13 @@ func main() {
 		panic(err)
 	}
 
-	analyst := &analyst.Analysis{}
-	analyst.TimeInterval = parse.Integer(public, "interval")
-	analyst.EmaShort = parse.Integer(public, "ema-short")
-	analyst.EmaLong = parse.Integer(public, "ema-long")
-	analyst.RsiPeriods = parse.Integer(public, "rsi")
+	products := []string{"LTC-USD"} // "BTC-USD", "ETH-USD",
+
+	settings := &analyst.Settings{}
+	settings.TimeInterval = parse.Integer(public, "interval")
+	settings.EmaShort = parse.Integer(public, "ema-short")
+	settings.EmaLong = parse.Integer(public, "ema-long")
+	settings.RsiPeriods = parse.Integer(public, "rsi")
 
 	auth := &gdax.Authentication{}
 	auth.Key = parse.Text(private, "key")
@@ -262,14 +266,13 @@ func main() {
 
 	// connect to exchange
 	messages := make(chan interface{})
-	products := []string{"BTC-USD"}
-	channels := []string{"ticker", "level2"}
+	channels := []string{"ticker"} //, "level2"}
 	go gdax.ExchangeSocket(products, channels, messages)
 
-	settings := &gdax.Poll{}
-	settings.OrderTime = 2
-	settings.HistoryTime = 4
-	go gdax.Polling(settings, auth, messages)
+	poll := &gdax.Poll{}
+	poll.OrderTime = 2
+	poll.HistoryTime = 4
+	go gdax.Polling(auth, poll, messages)
 
-	trader.Run(analyst, db, auth, messages)
+	trader.Run(db, auth, products, settings, messages)
 }

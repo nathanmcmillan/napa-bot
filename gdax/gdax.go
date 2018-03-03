@@ -16,59 +16,6 @@ import (
 	"time"
 )
 
-const (
-	api       = "https://api.gdax.com"
-	apiSocket = "wss://ws-feed.gdax.com"
-	get       = "GET"
-	post      = "POST"
-)
-
-// Authentication private data
-type Authentication struct {
-	Key        string
-	Secret     string
-	Passphrase string
-}
-
-// Profile exchange account product data
-type Profile struct {
-	ID        string
-	Currency  string
-	Balance   string
-	Available string
-	Hold      string
-	ProfileID string
-}
-
-// Candle product data
-type Candle struct {
-	Time    float64
-	Low     float64
-	High    float64
-	Open    float64
-	Closing float64
-	Volume  float64
-}
-
-// Order an order placed on the exchange
-type Order struct {
-	ID            string
-	Price         string
-	Size          string
-	Product       string
-	Side          string
-	Stp           string
-	Type          string
-	TimeInForce   string
-	PostOnly      bool
-	CreatedAt     string
-	FillFees      string
-	FilledSize    string
-	ExecutedValue string
-	Status        string
-	Settled       bool
-}
-
 func request(method, url string, body io.Reader) (*http.Client, *http.Request, error) {
 	client := &http.Client{}
 	request, err := http.NewRequest(method, url, body)
@@ -208,7 +155,8 @@ func GetHistory(product, start, end, granularity string) ([]Candle, error) {
 			return nil, errors.New("not a list")
 		}
 		candle := Candle{}
-		candle.Time, _ = values[0].(float64)
+		floatTime, _ := values[0].(float64)
+		candle.Time = int64(floatTime)
 		candle.Low, _ = values[1].(float64)
 		candle.High, _ = values[2].(float64)
 		candle.Open, _ = values[3].(float64)
@@ -235,7 +183,7 @@ func GetStats(product string) (interface{}, error) {
 }
 
 // GetAccounts map of account balances
-func GetAccounts(private *Authentication) ([]Profile, error) {
+func GetAccounts(private *Authentication) ([]Account, error) {
 	body, err := privateRequest(get, api, "/accounts", "", private)
 	if err != nil {
 		return nil, err
@@ -248,61 +196,32 @@ func GetAccounts(private *Authentication) ([]Profile, error) {
 		fmt.Println(decodeError)
 		return nil, err
 	}
-	profiles := make([]Profile, 0)
+	accounts := make([]Account, 0)
 	for i := 0; i < len(decode); i++ {
 		values, ok := decode[i].(map[string]interface{})
 		if !ok {
 			return nil, errors.New("parse error")
 		}
-		profile := Profile{}
-		profile.ID, _ = values["id"].(string)
-		profile.Currency, _ = values["currency"].(string)
-		profile.Balance, _ = values["balance"].(string)
-		profile.Available, _ = values["available"].(string)
-		profile.Hold, _ = values["hold"].(string)
-		profile.ProfileID, _ = values["profile_id"].(string)
+		account := Account{}
+		account.ID, _ = values["id"].(string)
+		account.Currency, _ = values["currency"].(string)
+		account.Balance, _ = values["balance"].(string)
+		account.Available, _ = values["available"].(string)
+		account.Hold, _ = values["hold"].(string)
+		account.ProfileID, _ = values["profile_id"].(string)
 
-		profiles = append(profiles, profile)
+		accounts = append(accounts, account)
 	}
-	return profiles, nil
+	return accounts, nil
 }
 
 // PlaceOrder send a buy or sell order
-func PlaceOrder(private *Authentication, js string) ([]Profile, error) {
-	if js != "" {
-		fmt.Println("not yet")
-		return nil, nil
-	}
-	body, err := privateRequest(post, api, "/orders", js, private)
-	if err != nil {
-		return nil, err
-	}
-	var decode []interface{}
-	err = json.Unmarshal(body, &decode)
-	if err != nil {
-		var decodeError interface{}
-		err = json.Unmarshal(body, &decodeError)
-		fmt.Println(decodeError)
-		return nil, nil
-	}
-	profiles := make([]Profile, 0)
-	for _, list := range decode {
-		values := list.(map[string]interface{})
-		profile := Profile{}
-		profile.ID, _ = values["id"].(string)
-		profile.Currency, _ = values["currency"].(string)
-		profile.Balance, _ = values["balance"].(string)
-		profile.Available, _ = values["available"].(string)
-		profile.Hold, _ = values["hold"].(string)
-		profile.ProfileID, _ = values["profile_id"].(string)
-
-		profiles = append(profiles, profile)
-	}
-	return profiles, nil
+func PlaceOrder(private *Authentication, js string) ([]Account, error) {
+	return nil, errors.New("not implemented yet")
 }
 
 // ListOrders get open orders
-func ListOrders(private *Authentication) ([]Order, error) {
+func ListOrders(private *Authentication) (map[string][]*Order, error) {
 	body, err := privateRequest(get, api, "/orders", "", private)
 	if err != nil {
 		return nil, err
@@ -315,16 +234,18 @@ func ListOrders(private *Authentication) ([]Order, error) {
 		fmt.Println(decodeError)
 		return nil, err
 	}
-	orders := make([]Order, 0)
+	orders := make(map[string][]*Order)
 	for i := 0; i < len(decode); i++ {
 		values, ok := decode[i].(map[string]interface{})
 		if !ok {
 			return nil, errors.New("parse error")
 		}
-		order := Order{}
+		order := &Order{}
 		order.ID, _ = values["id"].(string)
-		order.Price, _ = values["price"].(string)
-		order.Size, _ = values["size"].(string)
+		temp, _ := values["price"].(string)
+		order.Price, _ = strconv.ParseFloat(temp, 64)
+		temp, _ = values["size"].(string)
+		order.Size, _ = strconv.ParseFloat(temp, 64)
 		order.Product, _ = values["product_id"].(string)
 		order.Side, _ = values["side"].(string)
 		order.Stp, _ = values["stp"].(string)
@@ -332,13 +253,19 @@ func ListOrders(private *Authentication) ([]Order, error) {
 		order.TimeInForce, _ = values["time_in_force"].(string)
 		order.PostOnly, _ = values["post_only"].(bool)
 		order.CreatedAt, _ = values["created_at"].(string)
-		order.FillFees, _ = values["fill_fees"].(string)
-		order.FilledSize, _ = values["filled_size"].(string)
-		order.ExecutedValue, _ = values["executed_value"].(string)
+		temp, _ = values["fill_fees"].(string)
+		order.FillFees, _ = strconv.ParseFloat(temp, 64)
+		temp, _ = values["fillled_size"].(string)
+		order.FilledSize, _ = strconv.ParseFloat(temp, 64)
+		temp, _ = values["executed_value"].(string)
+		order.ExecutedValue, _ = strconv.ParseFloat(temp, 64)
 		order.Status, _ = values["status"].(string)
 		order.Settled, _ = values["settled"].(bool)
 
-		orders = append(orders, order)
+		if orders[order.Product] == nil {
+			orders[order.Product] = make([]*Order, 0)
+		}
+		orders[order.Product] = append(orders[order.Product], order)
 	}
 	return orders, nil
 }

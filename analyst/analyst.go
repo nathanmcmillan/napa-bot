@@ -1,16 +1,8 @@
 package analyst
 
 import (
-	"../historian"
+	"../gdax"
 )
-
-// Analysis market data
-type Analysis struct {
-	TimeInterval int64
-	RsiPeriods   int64
-	EmaShort     int64
-	EmaLong      int64
-}
 
 // PercentChange percent change in value
 func PercentChange(previous, now float64) float64 {
@@ -33,7 +25,7 @@ func Average(values []float64) float64 {
 }
 
 // Sma simple moving average
-func Sma(periods int64, candle []*historian.Candle) []float64 {
+func Sma(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	sma := make([]float64, size)
 	for i := int64(0); i < size; i++ {
@@ -51,12 +43,12 @@ func Sma(periods int64, candle []*historian.Candle) []float64 {
 }
 
 // UpdateSma update the average by one
-func UpdateSma(sma float64, periods int64, candle historian.Candle) float64 {
+func UpdateSma(sma float64, periods int64, candle gdax.Candle) float64 {
 	return 0.0
 }
 
 // Ema exponential moving average
-func Ema(periods int64, candle []*historian.Candle) []float64 {
+func Ema(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	ema := make([]float64, size)
 	weight := 2.0 / (float64(periods) + 1.0)
@@ -72,13 +64,13 @@ func Ema(periods int64, candle []*historian.Candle) []float64 {
 }
 
 // UpdateEma update the average by one
-func UpdateEma(ema float64, periods int64, candle historian.Candle) float64 {
+func UpdateEma(ema float64, periods int64, candle gdax.Candle) float64 {
 	weight := 2.0 / (float64(periods) + 1.0)
 	return (candle.Closing-ema)*weight + ema
 }
 
 // Macd moving average convergence divergence
-func Macd(periodsA int64, periodsB int64, candle []*historian.Candle) []float64 {
+func Macd(periodsA int64, periodsB int64, candle []*gdax.Candle) []float64 {
 	emaA := Ema(periodsA, candle)
 	emaB := Ema(periodsB, candle)
 	size := len(candle)
@@ -90,7 +82,7 @@ func Macd(periodsA int64, periodsB int64, candle []*historian.Candle) []float64 
 }
 
 // Rsi relative strength index
-func Rsi(periods int64, candle []*historian.Candle) []float64 {
+func Rsi(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	u := make([]float64, size)
 	d := make([]float64, size)
