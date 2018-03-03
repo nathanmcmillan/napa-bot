@@ -4,7 +4,7 @@ create table accounts (
     funds real
 );
 
-create table rates (
+create table history (
     unix integer unique, 
     product text,
     low real,
@@ -14,7 +14,7 @@ create table rates (
     volume real
 );
 
-create table book (
+create table orders (
     product text,
     price real,
     size real,

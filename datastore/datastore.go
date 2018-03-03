@@ -157,6 +157,7 @@ func QueryCoin(table string, db *sql.DB, interval, from, to int64) ([]*gdax.Cand
 	return candles, nil
 }
 
-func ListOrders(db *sql.DB) (map[string], error) {
-
+// ListOrders lists stored orders
+func ListOrders(db *sql.DB) (map[string]string, error) {
+	return nil, nil
 }
