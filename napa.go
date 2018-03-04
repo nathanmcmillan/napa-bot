@@ -26,6 +26,7 @@ type listenLock struct {
 const (
 	databaseDriver = "sqlite3"
 	databaseName   = "./napa.db"
+	databaseTestName   = "./napa_test.db"
 	databaseSQL    = "./napa.sql"
 )
 
@@ -35,8 +36,12 @@ var (
 )
 
 func install() {
-	fmt.Println("deleting database if exists")
+	fmt.Println("deleting databases")
 	err := os.Remove(databaseName)
+	if err != nil && !os.IsNotExist(err) {
+		panic(err)
+	}
+	err = os.Remove(databaseTestName)
 	if err != nil && !os.IsNotExist(err) {
 		panic(err)
 	}
@@ -47,6 +52,16 @@ func install() {
 	}
 	defer db.Close()
 	err = datastore.RunFile(db, databaseSQL)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("creating test database")
+	dbTest, err := sql.Open(databaseDriver, databaseTestName)
+	if err != nil {
+		panic(err)
+	}
+	defer dbTest.Close()
+	err = datastore.RunFile(dbTest, databaseSQL)
 	if err != nil {
 		panic(err)
 	}
@@ -263,16 +278,18 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
+	
+	datastore.ArchiveOrder(db, "LTC-USD", 10200, 0.05)
 
 	// connect to exchange
 	messages := make(chan interface{})
 	channels := []string{"ticker"} //, "level2"}
 	go gdax.ExchangeSocket(products, channels, messages)
 
-	poll := &gdax.Poll{}
+	/* poll := &gdax.Poll{}
 	poll.OrderTime = 2
 	poll.HistoryTime = 4
-	go gdax.Polling(auth, poll, messages)
+	go gdax.Polling(auth, poll, messages) */
 
 	trader.Run(db, auth, products, settings, messages)
 }

@@ -1,29 +1,22 @@
 package datastore
 
-const (
-	taker = float64(0.003)
+var (
+	taker = map[string]float64{
+		"BTC-USD": 0.0025,
+		"ETH-USD": 0.003,
+		"LTC-USD": 0.003,
+	}
 )
 
 // Order an order placed on the exchange
 type Order struct {
-	ID            string
+	ID int64
+	Product       string
 	Price         float64
 	Size          float64
-	Product       string
-	Side          string
-	Stp           string
-	Type          string
-	TimeInForce   string
-	PostOnly      bool
-	CreatedAt     string
-	FillFees      float64
-	FilledSize    float64
-	ExecutedValue float64
-	Status        string
-	Settled       bool
 }
 
-// MinPrice price to make a profit
-func MinPrice(price float64) float64 {
-	return price * (1.0 + taker)
+// Profit price to make a profit
+func (order *Order) Profit() float64 {
+	return order.Price * (1.0 + taker[order.Product])
 }

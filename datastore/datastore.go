@@ -89,15 +89,14 @@ func GetAccounts(db *sql.DB) ([]Account, error) {
 }
 
 // ArchiveCoin inserts historical records of coin product
-func ArchiveCoin(table string, db *sql.DB, candle []gdax.Candle) error {
-	query := fmt.Sprintf("insert or ignore into %s(unix, low, high, open, closing, volume) select ?, ?, ?, ?, ?, ?", table)
-	statement, err := db.Prepare(query)
+func ArchiveCoin(product string, db *sql.DB, candle []gdax.Candle) error {
+	statement, err := db.Prepare("insert or ignore into history(unix, product, low, high, open, closing, volume) select ?, ?, ?, ?, ?, ?, ?")
 	if err != nil {
 		return err
 	}
 	for i := 0; i < len(candle); i++ {
 		current := candle[i]
-		_, err = statement.Exec(current.Time, current.Low, current.High, current.Open, current.Closing, current.Volume)
+		_, err = statement.Exec(current.Time, product, current.Low, current.High, current.Open, current.Closing, current.Volume)
 		if err != nil {
 			return err
 		}
@@ -106,12 +105,11 @@ func ArchiveCoin(table string, db *sql.DB, candle []gdax.Candle) error {
 }
 
 // QueryCoin queries history of coin product
-func QueryCoin(table string, db *sql.DB, interval, from, to int64) ([]*gdax.Candle, error) {
+func QueryCoin(product string, db *sql.DB, interval, from, to int64) ([]*gdax.Candle, error) {
 	if to < from {
 		return nil, errors.New("bad range")
 	}
-	query := fmt.Sprintf("select * from %s where unix > ? and unix < ? order by unix", table)
-	rows, err := db.Query(query, from, to)
+	rows, err := db.Query("select * from history where product = ? and unix > ? and unix < ? order by unix", product, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +155,54 @@ func QueryCoin(table string, db *sql.DB, interval, from, to int64) ([]*gdax.Cand
 	return candles, nil
 }
 
-// ListOrders lists stored orders
-func ListOrders(db *sql.DB) (map[string]string, error) {
-	return nil, nil
+// ArchiveOrder inserts new order
+func ArchiveOrder(db *sql.DB, product string, price float64, size float64) (error) {
+	statement, err := db.Prepare("insert into orders(product, price, size) select ?, ?, ?")
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(product, price, size)
+		if err != nil {
+			return err
+		}
+	return nil
+}
+
+// RemoveOrder remove existing order
+func RemoveOrder(db *sql.DB, id int64) (error) {
+	statement, err := db.Prepare("delete from orders where id = ?")
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(id)
+		if err != nil {
+			return err
+		}
+	return nil
+}
+
+// QueryOrders lists stored orders
+func QueryOrders(db *sql.DB) (map[string][]*Order, error) {
+	rows, err := db.Query("select * from orders")
+	if err != nil {
+		return nil, err
+	}
+	orders := make(map[string][]*Order)
+	var id int64
+	var product string
+	var price float64
+	var size float64
+	for rows.Next() {
+		err = rows.Scan(&id, &product, &price, &size)
+		if err != nil {
+			return nil, err
+		}
+		order := &Order{id, product, price, size}
+		if orders[product] == nil {
+			orders[product] = make([]*Order, 0)
+		}
+		orders[product] = append(orders[product], order)
+	}
+	rows.Close()
+	return orders, nil
 }

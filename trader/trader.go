@@ -26,7 +26,7 @@ func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *ana
 		ticker[products[i]] = NewMovingAverage(10)
 	}
 
-	accounts, err := gdax.GetAccounts(auth)
+	/* accounts, err := gdax.GetAccounts(auth)
 	if err != nil {
 		panic(err)
 	}
@@ -36,12 +36,13 @@ func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *ana
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Open Orders:", openOrders)
+	fmt.Println("Open Orders:", openOrders) */
 
-	orders, err := datastore.ListOrders(db)
+	orders, err := datastore.QueryOrders(db)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(orders)
 
 	for {
 		rawMessage := <-messages
@@ -49,7 +50,7 @@ func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *ana
 		case gdax.Ticker:
 			move := ticker[message.ProductID]
 			move.Rolling(message.Price)
-			review(orders[message.ProductID], move.Current)
+			tickerReview(orders[message.ProductID], move.Current)
 		case gdax.Snapshot:
 			book := books[message.ProductID]
 			book.Snapshot(&message)
@@ -64,14 +65,23 @@ func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *ana
 	}
 }
 
-func review(orders []*gdax.Order, ticker float64) {
+func tickerReview(orders []*datastore.Order, ticker float64) {
 	fmt.Println("ticker", ticker)
 	if orders == nil {
 		return
 	}
 	for i := 0; i < len(orders); i++ {
-		fmt.Println("orders")
+		order := orders[i]
+		fmt.Println("order", order)
+		min := order.Profit()
+		if min >= ticker {
+			continueReview(order)
+		}
 	}
+}
+
+func continueReview(order *datastore.Order) {
+	
 }
 
 /* // get history

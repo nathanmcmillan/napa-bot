@@ -2,7 +2,7 @@ package trader
 
 import "testing"
 
-// TestTicker test move average
+// TestMovingAverage test moving average
 func TestMovingAverage(t *testing.T) {
 	var move *MovingAverage
 

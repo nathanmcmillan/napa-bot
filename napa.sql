@@ -15,7 +15,8 @@ create table history (
 );
 
 create table orders (
+    id integer primary key autoincrement,
     product text,
     price real,
-    size real,
+    size real
 );

@@ -16,6 +16,13 @@ import (
 	"time"
 )
 
+const (
+	api       = "https://api.gdax.com"
+	apiSocket = "wss://ws-feed.gdax.com"
+	get       = "GET"
+	post      = "POST"
+)
+
 func request(method, url string, body io.Reader) (*http.Client, *http.Request, error) {
 	client := &http.Client{}
 	request, err := http.NewRequest(method, url, body)
