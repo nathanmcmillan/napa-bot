@@ -10,7 +10,7 @@ import (
 )
 
 // ExchangeSocket dials websocket to exchange
-func ExchangeSocket(products, channels []string, messages chan interface{}) error {
+func ExchangeSocket(settings *Settings, messages chan interface{}) error {
 
 	fmt.Println("dialing exchange")
 	connection, _, err := websocket.DefaultDialer.Dial(apiSocket, nil)
@@ -20,10 +20,10 @@ func ExchangeSocket(products, channels []string, messages chan interface{}) erro
 	defer connection.Close()
 
 	var productList bytes.Buffer
-	numProducts := len(products)
+	numProducts := len(settings.Products)
 	for i := 0; i < numProducts; i++ {
 		productList.WriteString(`"`)
-		productList.WriteString(products[i])
+		productList.WriteString(settings.Products[i])
 		productList.WriteString(`"`)
 		if i+1 < numProducts {
 			productList.WriteString(`, `)
@@ -31,10 +31,10 @@ func ExchangeSocket(products, channels []string, messages chan interface{}) erro
 	}
 
 	var channelList bytes.Buffer
-	numChannels := len(channels)
+	numChannels := len(settings.Channels)
 	for i := 0; i < numChannels; i++ {
 		channelList.WriteString(`"`)
-		channelList.WriteString(channels[i])
+		channelList.WriteString(settings.Channels[i])
 		channelList.WriteString(`"`)
 		if i+1 < numChannels {
 			channelList.WriteString(`, `)

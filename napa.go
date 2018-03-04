@@ -9,7 +9,6 @@ import (
 	"os"
 	"sync"
 
-	"./analyst"
 	"./datastore"
 	"./gdax"
 	"./parse"
@@ -259,9 +258,9 @@ func main() {
 		panic(err)
 	}
 
-	products := []string{"LTC-USD"} // "BTC-USD", "ETH-USD",
-
-	settings := &analyst.Settings{}
+	settings := &gdax.Settings{}
+	settings.Products = parse.StringList(public, "products")
+	settings.Channels = parse.StringList(public, "channels")
 	settings.TimeInterval = parse.Integer(public, "interval")
 	settings.EmaShort = parse.Integer(public, "ema-short")
 	settings.EmaLong = parse.Integer(public, "ema-long")
@@ -283,13 +282,8 @@ func main() {
 
 	// connect to exchange
 	messages := make(chan interface{})
-	channels := []string{"ticker"} //, "level2"}
-	go gdax.ExchangeSocket(products, channels, messages)
+	go gdax.ExchangeSocket(settings, messages)
+	go gdax.Polling(auth, settings, messages)
 
-	/* poll := &gdax.Poll{}
-	poll.OrderTime = 2
-	poll.HistoryTime = 4
-	go gdax.Polling(auth, poll, messages) */
-
-	trader.Run(db, auth, products, settings, messages)
+	trader.Run(db, auth, settings, messages)
 }

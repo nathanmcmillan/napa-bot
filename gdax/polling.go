@@ -1,42 +1,32 @@
 package gdax
 
 import (
-	"encoding/json"
 	"time"
+	"strconv"
+	"fmt"
 )
 
-// Poll settings for polling
-type Poll struct {
-	OrderTime   int64
-	HistoryTime int64
-}
-
 // Polling sends poll requests to exchange
-func Polling(auth *Authentication, settings *Poll, messages chan interface{}) error {
-	orderTime := time.Second * time.Duration(settings.OrderTime)
-	historyTime := time.Second * time.Duration(settings.HistoryTime)
-	nextOrder := time.Now()
-	nextHistory := time.Now()
+func Polling(auth *Authentication, settings *Settings, messages chan interface{}) error {
+	next := time.Now()
+	interval := time.Second * time.Duration(settings.TimeInterval)
 	for {
 		time.Sleep(time.Second)
-
-		if time.Now().After(nextOrder) {
-			time.Sleep(time.Second)
-			orders, err := ListOrders(auth)
-			if err != nil {
-				panic(err)
-			}
-			out, err := json.Marshal(orders)
-			if err != nil {
-				panic(err)
-			}
-			messages <- string(out)
-			nextOrder = time.Now().Add(orderTime)
+		if time.Now().Before(next) {
+			continue
 		}
-
-		if time.Now().After(nextHistory) {
-			time.Sleep(time.Second)
-			nextHistory = time.Now().Add(historyTime)
+		
+		product := "BTC-USD"
+		limit := int64(128)
+		start := time.Now().Add(-time.Second * time.Duration(limit*settings.TimeInterval)).Format(time.RFC3339)
+		end := time.Now().Format(time.RFC3339)
+		history, err := GetHistory(product, start, end, strconv.FormatInt(settings.TimeInterval, 10))
+		if err != nil {
+			panic(err)
 		}
+		fmt.Println("History:", history)
+		
+		messages <- history
+		next = time.Now().Add(interval)
 	}
 }

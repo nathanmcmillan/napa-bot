@@ -3,15 +3,20 @@ package trader
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
-	"../analyst"
 	"../datastore"
 	"../gdax"
 )
 
 // Run core loop
-func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *analyst.Settings, messages chan interface{}) {
+func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, messages chan interface{}) {
 
+	retryWait := int64(1)
+	retryLimit := int64(3)
+	var tries int64
+	var err error
+	
 	//var rsi []float64
 	//var macd []float64
 	//var book []float64
@@ -21,9 +26,9 @@ func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *ana
 
 	books := make(map[string]*Book)
 	ticker := make(map[string]*MovingAverage)
-	for i := 0; i < len(products); i++ {
-		books[products[i]] = NewBook()
-		ticker[products[i]] = NewMovingAverage(10)
+	for i := 0; i < len(settings.Products); i++ {
+		books[settings.Products[i]] = NewBook()
+		ticker[settings.Products[i]] = NewMovingAverage(10)
 	}
 
 	/* accounts, err := gdax.GetAccounts(auth)
@@ -38,9 +43,19 @@ func Run(db *sql.DB, auth *gdax.Authentication, products []string, settings *ana
 	}
 	fmt.Println("Open Orders:", openOrders) */
 
-	orders, err := datastore.QueryOrders(db)
-	if err != nil {
-		panic(err)
+	var orders map[string][]*datastore.Order
+	tries = 0
+	for {
+		orders, err = datastore.QueryOrders(db)
+		if err == nil {
+			break
+		}
+		if tries >= retryLimit {
+			panic(err)
+		}
+		tries++
+		fmt.Println("query order", tries, "/", retryLimit, "failed", err)
+		time.Sleep(time.Second * time.Duration(retryWait))
 	}
 	fmt.Println(orders)
 
@@ -73,8 +88,7 @@ func tickerReview(orders []*datastore.Order, ticker float64) {
 	for i := 0; i < len(orders); i++ {
 		order := orders[i]
 		fmt.Println("order", order)
-		min := order.Profit()
-		if min >= ticker {
+		if order.ProfitPrice >= ticker {
 			continueReview(order)
 		}
 	}

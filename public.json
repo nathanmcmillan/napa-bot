@@ -1,4 +1,12 @@
 {
+    "products": [
+        "BTC-USD",
+        "ETH-USD",
+        "LTC-USD"
+    ],
+    "channels": [
+        "ticker"
+    ],
     "ema-short": 12,
     "ema-long": 26,
     "rsi": 14,

@@ -197,7 +197,7 @@ func QueryOrders(db *sql.DB) (map[string][]*Order, error) {
 		if err != nil {
 			return nil, err
 		}
-		order := &Order{id, product, price, size}
+		order := NewOrder(id, product, price, size)
 		if orders[product] == nil {
 			orders[product] = make([]*Order, 0)
 		}
