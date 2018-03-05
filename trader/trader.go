@@ -17,18 +17,12 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 	var tries int64
 	var err error
 	
-	//var rsi []float64
-	//var macd []float64
-	//var book []float64
-	//var tickerAverage float64
-	//var buyAverage float64
-	//var sellAverage float64
-
-	books := make(map[string]*Book)
+	macd := make(map[string]*Macd)
 	ticker := make(map[string]*MovingAverage)
+	
 	for i := 0; i < len(settings.Products); i++ {
-		books[settings.Products[i]] = NewBook()
-		ticker[settings.Products[i]] = NewMovingAverage(10)
+		macd[settings.Products[i]] = NewMacd(settings.EmaShort, settings.EmaLong, 0)
+		ticker[settings.Products[i]] = NewMovingAverage(10)	
 	}
 
 	/* accounts, err := gdax.GetAccounts(auth)
@@ -65,23 +59,15 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 		case gdax.Ticker:
 			move := ticker[message.ProductID]
 			move.Rolling(message.Price)
+			fmt.Println(message.ProductID, "ticker", move.Current)
 			tickerReview(orders[message.ProductID], move.Current)
-		case gdax.Snapshot:
-			book := books[message.ProductID]
-			book.Snapshot(&message)
-			fmt.Println("book init", book)
-		case gdax.Update:
-			book := books[message.ProductID]
-			book.Update(&message)
-			fmt.Println("book init", book)
-		case string:
-			fmt.Println("got a string ", message)
+		case gdax.CandleList:
+			fmt.Println("got candle history", message)
 		}
 	}
 }
 
 func tickerReview(orders []*datastore.Order, ticker float64) {
-	fmt.Println("ticker", ticker)
 	if orders == nil {
 		return
 	}

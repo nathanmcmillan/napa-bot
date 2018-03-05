@@ -145,7 +145,7 @@ func GetTrades(product string) (interface{}, error) {
 }
 
 // GetHistory list of candles for product history
-func GetHistory(product, start, end, granularity string) ([]Candle, error) {
+func GetHistory(product, start, end, granularity string) (*CandleList, error) {
 	body, err := publicRequest(get, api+"/products/"+product+"/candles?start="+start+"&end="+end+"&granularity="+granularity)
 	if err != nil {
 		return nil, err
@@ -155,13 +155,13 @@ func GetHistory(product, start, end, granularity string) ([]Candle, error) {
 	if err != nil {
 		return nil, err
 	}
-	candles := make([]Candle, 0)
+	candles := make([]*Candle, 0)
 	for i := 0; i < len(decode); i++ {
 		values, ok := decode[i].([]interface{})
 		if !ok {
 			return nil, errors.New("not a list")
 		}
-		candle := Candle{}
+		candle := &Candle{}
 		floatTime, _ := values[0].(float64)
 		candle.Time = int64(floatTime)
 		candle.Low, _ = values[1].(float64)
@@ -172,7 +172,10 @@ func GetHistory(product, start, end, granularity string) ([]Candle, error) {
 
 		candles = append(candles, candle)
 	}
-	return candles, nil
+	candleList := &CandleList{}
+	candleList.product = product
+	candleList.list = candles
+	return candleList, nil
 }
 
 // GetStats map of 24 hour product statistics

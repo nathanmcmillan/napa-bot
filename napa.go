@@ -265,6 +265,8 @@ func main() {
 	settings.EmaShort = parse.Integer(public, "ema-short")
 	settings.EmaLong = parse.Integer(public, "ema-long")
 	settings.RsiPeriods = parse.Integer(public, "rsi")
+	
+	fmt.Println("settings", settings)
 
 	auth := &gdax.Authentication{}
 	auth.Key = parse.Text(private, "key")

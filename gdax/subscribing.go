@@ -74,66 +74,6 @@ func ExchangeSocket(settings *Settings, messages chan interface{}) error {
 			ticker.Price, _ = strconv.ParseFloat(temp, 64)
 			ticker.Side, _ = message["side"].(string)
 			messages <- ticker
-		case "snapshot":
-			snapshot := Snapshot{}
-			snapshot.ProductID, _ = message["product_id"].(string)
-			snapshot.Bids = make([]SnapshotTuple, 0)
-			snapshot.Asks = make([]SnapshotTuple, 0)
-			list, ok := message["bids"].([]interface{})
-			if !ok {
-				continue
-			}
-			for i := 0; i < len(list); i++ {
-				rawTuple, ok := list[i].([]interface{})
-				if !ok {
-					continue
-				}
-				tuple := SnapshotTuple{}
-				temp, _ := rawTuple[0].(string)
-				tuple.Price, _ = strconv.ParseFloat(temp, 64)
-				temp, _ = rawTuple[1].(string)
-				tuple.Size, _ = strconv.ParseFloat(temp, 64)
-				snapshot.Bids = append(snapshot.Bids, tuple)
-			}
-			list, ok = message["asks"].([]interface{})
-			if !ok {
-				continue
-			}
-			for i := 0; i < len(list); i++ {
-				rawTuple, ok := list[i].([]interface{})
-				if !ok {
-					continue
-				}
-				tuple := SnapshotTuple{}
-				temp, _ := rawTuple[0].(string)
-				tuple.Price, _ = strconv.ParseFloat(temp, 64)
-				temp, _ = rawTuple[1].(string)
-				tuple.Size, _ = strconv.ParseFloat(temp, 64)
-				snapshot.Asks = append(snapshot.Asks, tuple)
-			}
-			messages <- snapshot
-		case "l2update":
-			update := Update{}
-			update.ProductID, _ = message["product_id"].(string)
-			update.Changes = make([]UpdateChange, 0)
-			list, ok := message["changes"].([]interface{})
-			if !ok {
-				continue
-			}
-			for i := 0; i < len(list); i++ {
-				rawChange, ok := list[i].([]interface{})
-				if !ok {
-					continue
-				}
-				change := UpdateChange{}
-				change.Side, _ = rawChange[0].(string)
-				temp, _ := rawChange[1].(string)
-				change.Price, _ = strconv.ParseFloat(temp, 64)
-				temp, _ = rawChange[2].(string)
-				change.Size, _ = strconv.ParseFloat(temp, 64)
-				update.Changes = append(update.Changes, change)
-			}
-			messages <- update
 		}
 	}
 	return nil

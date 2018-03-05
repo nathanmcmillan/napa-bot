@@ -9,11 +9,6 @@ func PercentChange(previous, now float64) float64 {
 	return (now - previous) / previous * 100
 }
 
-// UpdateMovingAverage updates a given average by one
-func UpdateMovingAverage(current, update float64, periods int64) float64 {
-	return (current*float64(periods) + update) / float64(periods+1)
-}
-
 // Average average of multiple values
 func Average(values []float64) float64 {
 	count := len(values)
@@ -25,7 +20,7 @@ func Average(values []float64) float64 {
 }
 
 // Sma simple moving average
-func Sma(periods int64, candle []*gdax.Candle) []float64 {
+func CreateSma(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	sma := make([]float64, size)
 	for i := int64(0); i < size; i++ {
@@ -42,47 +37,8 @@ func Sma(periods int64, candle []*gdax.Candle) []float64 {
 	return sma
 }
 
-// UpdateSma update the average by one
-func UpdateSma(sma float64, periods int64, candle gdax.Candle) float64 {
-	return 0.0
-}
-
-// Ema exponential moving average
-func Ema(periods int64, candle []*gdax.Candle) []float64 {
-	size := int64(len(candle))
-	ema := make([]float64, size)
-	weight := 2.0 / (float64(periods) + 1.0)
-	for i := int64(0); i < size; i++ {
-		if i < periods {
-			ema[i] = candle[i].Closing
-			continue
-		}
-		previous := ema[i-1]
-		ema[i] = (candle[i].Closing-previous)*weight + previous
-	}
-	return ema
-}
-
-// UpdateEma update the average by one
-func UpdateEma(ema float64, periods int64, candle gdax.Candle) float64 {
-	weight := 2.0 / (float64(periods) + 1.0)
-	return (candle.Closing-ema)*weight + ema
-}
-
-// Macd moving average convergence divergence
-func Macd(periodsA int64, periodsB int64, candle []*gdax.Candle) []float64 {
-	emaA := Ema(periodsA, candle)
-	emaB := Ema(periodsB, candle)
-	size := len(candle)
-	macd := make([]float64, size)
-	for i := 0; i < size; i++ {
-		macd[i] = emaA[i] - emaB[i]
-	}
-	return macd
-}
-
 // Rsi relative strength index
-func Rsi(periods int64, candle []*gdax.Candle) []float64 {
+func CreateRsi(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	u := make([]float64, size)
 	d := make([]float64, size)

@@ -9,3 +9,9 @@ type Candle struct {
 	Closing float64
 	Volume  float64
 }
+
+// CandleList list of candles
+type CandleList struct {
+	product string
+	list []*Candle	
+}
