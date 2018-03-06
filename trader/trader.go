@@ -16,13 +16,13 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 	retryLimit := int64(3)
 	var tries int64
 	var err error
-	
+
 	macd := make(map[string]*Macd)
 	ticker := make(map[string]*MovingAverage)
-	
+
 	for i := 0; i < len(settings.Products); i++ {
 		macd[settings.Products[i]] = NewMacd(settings.EmaShort, settings.EmaLong, 0)
-		ticker[settings.Products[i]] = NewMovingAverage(10)	
+		ticker[settings.Products[i]] = NewMovingAverage(10)
 	}
 
 	/* accounts, err := gdax.GetAccounts(auth)
@@ -63,6 +63,7 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 			tickerReview(orders[message.ProductID], move.Current)
 		case gdax.CandleList:
 			fmt.Println("got candle history", message)
+			// macd.Update(message[0].Closing) TODO
 		}
 	}
 }
@@ -81,7 +82,7 @@ func tickerReview(orders []*datastore.Order, ticker float64) {
 }
 
 func continueReview(order *datastore.Order) {
-	
+
 }
 
 /* // get history

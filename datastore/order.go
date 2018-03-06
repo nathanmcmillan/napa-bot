@@ -10,16 +10,17 @@ var (
 
 // Order an order placed on the exchange
 type Order struct {
-	ID int64
-	Price         float64
-	Size          float64
+	ID          int64
+	Price       float64
+	Size        float64
 	ProfitPrice float64
 }
 
+// NewOrder constructor
 func NewOrder(id int64, product string, price, size float64) *Order {
 	order := &Order{}
 	order.ID = id
-	order.Price = price 
+	order.Price = price
 	order.Size = size
 	order.ProfitPrice = ProfitPrice(product, price)
 	return order
