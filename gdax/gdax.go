@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sort"
 
 	"crypto/hmac"
 	"crypto/sha256"
@@ -172,10 +173,8 @@ func GetHistory(product, start, end, granularity string) (*CandleList, error) {
 
 		candles = append(candles, candle)
 	}
-	candleList := &CandleList{}
-	candleList.product = product
-	candleList.list = candles
-	return candleList, nil
+	sort.Sort(SortCandlesByTime(candles))
+	return &CandleList{product, candles}, nil
 }
 
 // GetStats map of 24 hour product statistics

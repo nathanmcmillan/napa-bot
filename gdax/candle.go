@@ -12,6 +12,19 @@ type Candle struct {
 
 // CandleList list of candles
 type CandleList struct {
-	product string
-	list []*Candle	
+	Product string
+	List    []*Candle
+}
+
+// SortCandlesByTime sort list of candles by time
+type SortCandlesByTime []*Candle
+
+func (list SortCandlesByTime) Len() int {
+	return len(list)
+}
+func (list SortCandlesByTime) Swap(left, right int) {
+	list[left], list[right] = list[right], list[left]
+}
+func (list SortCandlesByTime) Less(left, right int) bool {
+	return list[left].Time < list[right].Time
 }

@@ -10,5 +10,5 @@
     "ema-short": 12,
     "ema-long": 26,
     "rsi": 14,
-    "interval": 3600
+    "seconds": 3600
 }

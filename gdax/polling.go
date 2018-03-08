@@ -1,9 +1,10 @@
 package gdax
 
 import (
-	"time"
-	"strconv"
+	"errors"
 	"fmt"
+	"strconv"
+	"time"
 )
 
 const (
@@ -11,33 +12,45 @@ const (
 )
 
 // Polling sends poll requests to exchange
-func Polling(auth *Authentication, settings *Settings, messages chan interface{}) error {
-	interval := time.Second * time.Duration(settings.TimeInterval)
-	intervalString := strconv.FormatInt(settings.TimeInterval, 10)
-	next := time.Now()
+func Polling(auth *Authentication, settings *Settings, messages chan interface{}) {
+	if settings.EmaLong > candleLimit {
+		panic(errors.New("ema out of range"))
+	}
+	interval := time.Second * time.Duration(settings.Seconds)
+	beginning := -interval * time.Duration(settings.EmaLong)
+	granularity := strconv.FormatInt(settings.Seconds, 10)
 	for {
-		difference := time.Now().Sub(next)
-		fmt.Println("time difference", difference)
-		if difference > 0 {
-			time.Sleep(difference)
-			continue
-		}
-		
+		known := false
+		var wait time.Duration
+
 		for i := 0; i < len(settings.Products); i++ {
-			product := settings.Products[i]
-			fmt.Println("history product", product)
-			start := time.Now().Add(-time.Second * time.Duration(candleLimit*settings.TimeInterval)).Format(time.RFC3339)
-			end := time.Now().Format(time.RFC3339)
-			history, err := GetHistory(product, start, end, intervalString)
+			now := time.Now().UTC()
+			start := time.Now().UTC().Add(beginning)
+			fmt.Println("polling", settings.Products[i], "from", start, "to", now)
+			history, err := GetHistory(settings.Products[i], start.Format(time.RFC3339), now.Format(time.RFC3339), granularity)
 			if err != nil {
-				panic(err)
+				messages <- err
+				time.Sleep(time.Second)
+				continue
 			}
-			fmt.Println("History:", history)
-			messages <- history
-			
+			if len(history.List) > 0 {
+				messages <- history
+				if !known {
+					candle := history.List[len(history.List)-1]
+					at := time.Unix(candle.Time, 0)
+					wait = interval - time.Now().Sub(at)
+					known = true
+				}
+			}
 			time.Sleep(time.Second)
 		}
-		
-		next = time.Now().Add(interval)
+
+		if known {
+			if wait < 0 {
+				wait = interval
+			}
+			fmt.Println("poll thread sleeping for", wait)
+			time.Sleep(wait)
+		}
 	}
 }

@@ -156,28 +156,28 @@ func QueryCoin(product string, db *sql.DB, interval, from, to int64) ([]*gdax.Ca
 }
 
 // ArchiveOrder inserts new order
-func ArchiveOrder(db *sql.DB, product string, price float64, size float64) (error) {
+func ArchiveOrder(db *sql.DB, product string, price float64, size float64) error {
 	statement, err := db.Prepare("insert into orders(product, price, size) select ?, ?, ?")
 	if err != nil {
 		return err
 	}
 	_, err = statement.Exec(product, price, size)
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // RemoveOrder remove existing order
-func RemoveOrder(db *sql.DB, id int64) (error) {
+func RemoveOrder(db *sql.DB, id int64) error {
 	statement, err := db.Prepare("delete from orders where id = ?")
 	if err != nil {
 		return err
 	}
 	_, err = statement.Exec(id)
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

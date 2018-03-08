@@ -10,7 +10,11 @@ import (
 )
 
 // Run core loop
-func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, messages chan interface{}) {
+func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings) {
+
+	messages := make(chan interface{})
+	go gdax.ExchangeSocket(settings, messages)
+	go gdax.Polling(auth, settings, messages)
 
 	retryWait := int64(1)
 	retryLimit := int64(3)
@@ -21,7 +25,7 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 	ticker := make(map[string]*MovingAverage)
 
 	for i := 0; i < len(settings.Products); i++ {
-		macd[settings.Products[i]] = NewMacd(settings.EmaShort, settings.EmaLong, 0)
+		macd[settings.Products[i]] = NewMacd(settings.EmaShort, settings.EmaLong)
 		ticker[settings.Products[i]] = NewMovingAverage(10)
 	}
 
@@ -51,7 +55,7 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 		fmt.Println("query order", tries, "/", retryLimit, "failed", err)
 		time.Sleep(time.Second * time.Duration(retryWait))
 	}
-	fmt.Println(orders)
+	fmt.Println("orders :", orders)
 
 	for {
 		rawMessage := <-messages
@@ -59,11 +63,19 @@ func Run(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, message
 		case gdax.Ticker:
 			move := ticker[message.ProductID]
 			move.Rolling(message.Price)
-			fmt.Println(message.ProductID, "ticker", move.Current)
+			fmt.Println(message.ProductID, "| TICKER", move.Current, "|")
 			tickerReview(orders[message.ProductID], move.Current)
-		case gdax.CandleList:
-			fmt.Println("got candle history", message)
-			// macd.Update(message[0].Closing) TODO
+		case *gdax.CandleList:
+			mac := NewMacd(settings.EmaShort, settings.EmaLong)
+			for j := 0; j < len(message.List); j++ {
+				// fmt.Println("TIME", message.List[j].Time, "/", time.Unix(message.List[j].Time, 0), "CLOSING ", message.List[j].Closing)
+				mac.Update(message.List[j].Closing)
+			}
+			fmt.Println(message.Product, "| MACD", mac.Current, "| SIGNAL", mac.Signal, "|")
+			macd[message.Product] = mac
+			macdReview(orders[message.Product], mac, ticker[message.Product].Current)
+		case error:
+			fmt.Println("error", message)
 		}
 	}
 }
@@ -74,7 +86,6 @@ func tickerReview(orders []*datastore.Order, ticker float64) {
 	}
 	for i := 0; i < len(orders); i++ {
 		order := orders[i]
-		fmt.Println("order", order)
 		if order.ProfitPrice >= ticker {
 			continueReview(order)
 		}
@@ -85,27 +96,18 @@ func continueReview(order *datastore.Order) {
 
 }
 
-/* // get history
-product := "BTC-USD"
-product_table := "btc_usd"
-limit := int64(128)
-start := time.Now().Add(-time.Second * time.Duration(limit*analysis.TimeInterval)).Format(time.RFC3339)
-end := time.Now().Format(time.RFC3339)
-history, err := gdax.GetHistory(product, start, end, strconv.FormatInt(analysis.TimeInterval, 10))
-if err != nil {
-	panic(err)
+func macdReview(orders []*datastore.Order, mac *Macd, ticker float64) {
+	if orders == nil || mac.Signal == "wait" {
+		return
+	}
+	if mac.Signal == "sell" {
+		for i := 0; i < len(orders); i++ {
+			order := orders[i]
+			if order.ProfitPrice >= ticker {
+				continueReview(order)
+			}
+		}
+	} else if mac.Signal == "buy" {
+		fmt.Println("buy code")
+	}
 }
-fmt.Println("History:", history)
-
-// archive history
-historian.ArchiveBtcUsd(db, history)
-
-// analyze history
-from := time.Now().Add(-time.Second * time.Duration(limit*analysis.TimeInterval)).Unix()
-to := time.Now().Unix()
-candles, err := historian.GetBtcUsd(db, analysis.TimeInterval, from, to)
-if err != nil {
-	panic(err)
-}
-fmt.Println("MACD", analyst.Macd(analysis.EmaShort, analysis.EmaLong, candles))
-fmt.Println("RSI", analyst.Rsi(analysis.RsiPeriods, candles)) */

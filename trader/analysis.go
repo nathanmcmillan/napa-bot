@@ -19,7 +19,7 @@ func Average(values []float64) float64 {
 	return average / float64(count)
 }
 
-// Sma simple moving average
+// CreateSma simple moving average
 func CreateSma(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	sma := make([]float64, size)
@@ -37,7 +37,7 @@ func CreateSma(periods int64, candle []*gdax.Candle) []float64 {
 	return sma
 }
 
-// Rsi relative strength index
+// CreateRsi relative strength index
 func CreateRsi(periods int64, candle []*gdax.Candle) []float64 {
 	size := int64(len(candle))
 	u := make([]float64, size)

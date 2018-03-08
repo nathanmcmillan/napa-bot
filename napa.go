@@ -23,10 +23,10 @@ type listenLock struct {
 }
 
 const (
-	databaseDriver = "sqlite3"
-	databaseName   = "./napa.db"
-	databaseTestName   = "./napa_test.db"
-	databaseSQL    = "./napa.sql"
+	databaseDriver   = "sqlite3"
+	databaseName     = "./napa.db"
+	databaseTestName = "./napa_test.db"
+	databaseSQL      = "./napa.sql"
 )
 
 var (
@@ -261,11 +261,11 @@ func main() {
 	settings := &gdax.Settings{}
 	settings.Products = parse.StringList(public, "products")
 	settings.Channels = parse.StringList(public, "channels")
-	settings.TimeInterval = parse.Integer(public, "interval")
+	settings.Seconds = parse.Integer(public, "seconds")
 	settings.EmaShort = parse.Integer(public, "ema-short")
 	settings.EmaLong = parse.Integer(public, "ema-long")
 	settings.RsiPeriods = parse.Integer(public, "rsi")
-	
+
 	fmt.Println("settings", settings)
 
 	auth := &gdax.Authentication{}
@@ -279,13 +279,10 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
-	
+
+	// test data
 	datastore.ArchiveOrder(db, "LTC-USD", 10200, 0.05)
 
-	// connect to exchange
-	messages := make(chan interface{})
-	go gdax.ExchangeSocket(settings, messages)
-	go gdax.Polling(auth, settings, messages)
-
-	trader.Run(db, auth, settings, messages)
+	// trade
+	trader.Run(db, auth, settings)
 }
