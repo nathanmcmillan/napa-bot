@@ -1,8 +1,6 @@
 {
     "products": [
-        "BTC-USD",
-        "ETH-USD",
-        "LTC-USD"
+        "BTC-USD"
     ],
     "channels": [
         "ticker"

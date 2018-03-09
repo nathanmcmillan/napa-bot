@@ -280,9 +280,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// test data
-	datastore.ArchiveOrder(db, "LTC-USD", 10200, 0.05)
-
 	// trade
-	trader.Run(db, auth, settings)
+	trade := trader.NewTrader(db, auth, settings)
+	trade.Run()
 }

@@ -170,7 +170,6 @@ func GetHistory(product, start, end, granularity string) (*CandleList, error) {
 		candle.Open, _ = values[3].(float64)
 		candle.Closing, _ = values[4].(float64)
 		candle.Volume, _ = values[5].(float64)
-
 		candles = append(candles, candle)
 	}
 	sort.Sort(SortCandlesByTime(candles))
@@ -192,8 +191,8 @@ func GetStats(product string) (interface{}, error) {
 }
 
 // GetAccounts map of account balances
-func GetAccounts(private *Authentication) ([]Account, error) {
-	body, err := privateRequest(get, api, "/accounts", "", private)
+func GetAccounts(auth *Authentication) ([]Account, error) {
+	body, err := privateRequest(get, api, "/accounts", "", auth)
 	if err != nil {
 		return nil, err
 	}
@@ -214,24 +213,53 @@ func GetAccounts(private *Authentication) ([]Account, error) {
 		account := Account{}
 		account.ID, _ = values["id"].(string)
 		account.Currency, _ = values["currency"].(string)
-		account.Balance, _ = values["balance"].(string)
-		account.Available, _ = values["available"].(string)
-		account.Hold, _ = values["hold"].(string)
+		account.Balance, _ = values["balance"].(float64)
+		account.Available, _ = values["available"].(float64)
+		account.Hold, _ = values["hold"].(float64)
 		account.ProfileID, _ = values["profile_id"].(string)
-
 		accounts = append(accounts, account)
 	}
 	return accounts, nil
 }
 
 // PlaceOrder send a buy or sell order
-func PlaceOrder(private *Authentication, js string) ([]Account, error) {
-	return nil, errors.New("not implemented yet")
+func PlaceOrder(auth *Authentication, rawJs string) (*Order, error) {
+	body, err := privateRequest(post, api, "/orders", rawJs, auth)
+	if err != nil {
+		return nil, err
+	}
+	var decode map[string]interface{}
+	err = json.Unmarshal(body, &decode)
+	if err != nil {
+		return nil, err
+	}
+	order := &Order{}
+	order.ID, _ = decode["id"].(string)
+	temp, _ := decode["price"].(string)
+	order.Price, _ = strconv.ParseFloat(temp, 64)
+	temp, _ = decode["size"].(string)
+	order.Size, _ = strconv.ParseFloat(temp, 64)
+	order.Product, _ = decode["product_id"].(string)
+	order.Side, _ = decode["side"].(string)
+	order.Stp, _ = decode["stp"].(string)
+	order.Type, _ = decode["type"].(string)
+	order.TimeInForce, _ = decode["time_in_force"].(string)
+	order.PostOnly, _ = decode["post_only"].(bool)
+	order.CreatedAt, _ = decode["created_at"].(string)
+	temp, _ = decode["fill_fees"].(string)
+	order.FillFees, _ = strconv.ParseFloat(temp, 64)
+	temp, _ = decode["fillled_size"].(string)
+	order.FilledSize, _ = strconv.ParseFloat(temp, 64)
+	temp, _ = decode["executed_value"].(string)
+	order.ExecutedValue, _ = strconv.ParseFloat(temp, 64)
+	order.Status, _ = decode["status"].(string)
+	order.Settled, _ = decode["settled"].(bool)
+	return order, nil
 }
 
 // ListOrders get open orders
-func ListOrders(private *Authentication) (map[string][]*Order, error) {
-	body, err := privateRequest(get, api, "/orders", "", private)
+func ListOrders(auth *Authentication) (map[string][]*Order, error) {
+	body, err := privateRequest(get, api, "/orders", "", auth)
 	if err != nil {
 		return nil, err
 	}
@@ -277,4 +305,39 @@ func ListOrders(private *Authentication) (map[string][]*Order, error) {
 		orders[order.Product] = append(orders[order.Product], order)
 	}
 	return orders, nil
+}
+
+// GetOrder get an order by id
+func GetOrder(auth *Authentication, orderID string) (*Order, error) {
+	body, err := privateRequest(get, api, "/orders/"+orderID, "", auth)
+	if err != nil {
+		return nil, err
+	}
+	var decode map[string]interface{}
+	err = json.Unmarshal(body, &decode)
+	if err != nil {
+		return nil, err
+	}
+	order := &Order{}
+	order.ID, _ = decode["id"].(string)
+	temp, _ := decode["price"].(string)
+	order.Price, _ = strconv.ParseFloat(temp, 64)
+	temp, _ = decode["size"].(string)
+	order.Size, _ = strconv.ParseFloat(temp, 64)
+	order.Product, _ = decode["product_id"].(string)
+	order.Side, _ = decode["side"].(string)
+	order.Stp, _ = decode["stp"].(string)
+	order.Type, _ = decode["type"].(string)
+	order.TimeInForce, _ = decode["time_in_force"].(string)
+	order.PostOnly, _ = decode["post_only"].(bool)
+	order.CreatedAt, _ = decode["created_at"].(string)
+	temp, _ = decode["fill_fees"].(string)
+	order.FillFees, _ = strconv.ParseFloat(temp, 64)
+	temp, _ = decode["fillled_size"].(string)
+	order.FilledSize, _ = strconv.ParseFloat(temp, 64)
+	temp, _ = decode["executed_value"].(string)
+	order.ExecutedValue, _ = strconv.ParseFloat(temp, 64)
+	order.Status, _ = decode["status"].(string)
+	order.Settled, _ = decode["settled"].(bool)
+	return order, nil
 }

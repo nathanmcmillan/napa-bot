@@ -4,8 +4,8 @@ package gdax
 type Account struct {
 	ID        string
 	Currency  string
-	Balance   string
-	Available string
-	Hold      string
+	Balance   float64
+	Available float64
+	Hold      float64
 	ProfileID string
 }

@@ -19,8 +19,7 @@ func TestMacd(t *testing.T) {
 		240 202.3126 - 201.4994
 	*/
 
-	macd = NewMacd(12, 26)
-	macd.Update(200.0)
+	macd = NewMacd(12, 26, 200.0)
 	expectString(t, macd.Signal, "wait")
 	expectString(t, fmt.Sprintf("%.4f", macd.Current), "0.0000")
 
