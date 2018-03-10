@@ -7,7 +7,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
 	"sync"
+	"syscall"
 
 	"./datastore"
 	"./gdax"
@@ -33,6 +36,36 @@ var (
 	indexFileHTML []byte
 	indexFileJS   []byte
 )
+
+func addFunds(product, usd string) {
+	fmt.Println("funding", product, "$", usd)
+	amount, err := strconv.ParseFloat(usd, 64)
+	if err != nil {
+		panic(err)
+	}
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	datastore.NewAccount(db, product, amount)
+}
+
+func listAccounts() {
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	accounts, err := datastore.QueryAccounts(db)
+	if err != nil {
+		panic(err)
+	}
+	for i := 0; i < len(accounts); i++ {
+		account := accounts[i]
+		fmt.Println("account", account.ID, account.Product, account.Funds)
+	}
+}
 
 func install() {
 	fmt.Println("deleting databases")
@@ -239,12 +272,24 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] == "install" {
 			install()
-			return
-		}
-		if os.Args[1] == "server" {
+		} else if os.Args[1] == "server" {
 			server()
-			return
+		} else if os.Args[1] == "fund" {
+			if len(os.Args) > 3 {
+				addFunds(os.Args[2], os.Args[3])
+			} else {
+				fmt.Println("fund [product] [usd]")
+			}
+		} else if os.Args[1] == "list" {
+			if len(os.Args) > 2 {
+				if os.Args[2] == "accounts" {
+					listAccounts()
+				}
+			} else {
+				fmt.Println("list [accounts]")
+			}
 		}
+		return
 	}
 
 	// load files
@@ -280,7 +325,10 @@ func main() {
 	}
 	defer db.Close()
 
+	signals := make(chan os.Signal)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
 	// trade
-	trade := trader.NewTrader(db, auth, settings)
+	trade := trader.NewTrader(db, auth, settings, signals)
 	trade.Run()
 }

@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/gorilla/websocket"
 )
 
 // ExchangeSocket dials websocket to exchange
-func ExchangeSocket(settings *Settings, messages chan interface{}) error {
+func ExchangeSocket(settings *Settings, messages chan interface{}, signals chan os.Signal) error {
 
 	fmt.Println("dialing exchange")
 	connection, _, err := websocket.DefaultDialer.Dial(apiSocket, nil)

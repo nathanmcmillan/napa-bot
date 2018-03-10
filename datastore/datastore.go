@@ -20,22 +20,6 @@ func exec(db *sql.DB, query string) error {
 	return err
 }
 
-func getID(db *sql.DB, query string) (int64, error) {
-	statement, err := db.Prepare(query)
-	if err != nil {
-		return 0, err
-	}
-	result, err := statement.Exec()
-	if err != nil {
-		return 0, err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	return id, nil
-}
-
 // RunFile executes all sql statements
 func RunFile(db *sql.DB, path string) error {
 	file, err := os.Open(path)
@@ -61,28 +45,38 @@ func RunFile(db *sql.DB, path string) error {
 }
 
 // NewAccount create database account
-func NewAccount(db *sql.DB) (int64, error) {
-	return getID(db, "insert into accounts default values")
+func NewAccount(db *sql.DB, product string, funds float64) (int64, error) {
+	statement, err := db.Prepare("insert into accounts(product, funds) select ?, ?")
+	if err != nil {
+		return 0, err
+	}
+	result, err := statement.Exec(product, funds)
+	if err != nil {
+		return 0, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
-// GetAccounts get list of accounts from database
-func GetAccounts(db *sql.DB) ([]Account, error) {
+// QueryAccounts get list of accounts from database
+func QueryAccounts(db *sql.DB) ([]*Account, error) {
 	rows, err := db.Query("select * from accounts")
 	if err != nil {
 		return nil, err
 	}
-	accounts := make([]Account, 0)
+	accounts := make([]*Account, 0)
 	var id int64
+	var product string
 	var funds float64
 	for rows.Next() {
-		err = rows.Scan(&id, &funds)
+		err = rows.Scan(&id, &product, &funds)
 		if err != nil {
 			return nil, err
 		}
-		a := Account{}
-		a.ID = id
-		a.Funds = funds
-		accounts = append(accounts, a)
+		accounts = append(accounts, &Account{id, product, funds})
 	}
 	rows.Close()
 	return accounts, nil
@@ -156,12 +150,12 @@ func QueryCoin(product string, db *sql.DB, interval, from, to int64) ([]*gdax.Ca
 }
 
 // ArchiveOrder inserts new order
-func ArchiveOrder(db *sql.DB, product string, price float64, size float64) error {
-	statement, err := db.Prepare("insert into orders(product, price, size) select ?, ?, ?")
+func ArchiveOrder(db *sql.DB, exchange_id string) error {
+	statement, err := db.Prepare("insert into orders(exchange_id) select ?")
 	if err != nil {
 		return err
 	}
-	_, err = statement.Exec(product, price, size)
+	_, err = statement.Exec(exchange_id)
 	if err != nil {
 		return err
 	}
@@ -169,12 +163,12 @@ func ArchiveOrder(db *sql.DB, product string, price float64, size float64) error
 }
 
 // RemoveOrder remove existing order
-func RemoveOrder(db *sql.DB, id int64) error {
-	statement, err := db.Prepare("delete from orders where id = ?")
+func RemoveOrder(db *sql.DB, exchange_id string) error {
+	statement, err := db.Prepare("delete from orders where exchange_id = ?")
 	if err != nil {
 		return err
 	}
-	_, err = statement.Exec(id)
+	_, err = statement.Exec(exchange_id)
 	if err != nil {
 		return err
 	}
@@ -182,26 +176,20 @@ func RemoveOrder(db *sql.DB, id int64) error {
 }
 
 // QueryOrders lists stored orders
-func QueryOrders(db *sql.DB) (map[string][]*Order, error) {
+func QueryOrders(db *sql.DB) ([]*Order, error) {
 	rows, err := db.Query("select * from orders")
 	if err != nil {
 		return nil, err
 	}
-	orders := make(map[string][]*Order)
+	orders := make([]*Order, 0)
 	var id int64
-	var product string
-	var price float64
-	var size float64
+	var exchange_id string
 	for rows.Next() {
-		err = rows.Scan(&id, &product, &price, &size)
+		err = rows.Scan(&id, &exchange_id)
 		if err != nil {
 			return nil, err
 		}
-		order := NewOrder(id, product, price, size)
-		if orders[product] == nil {
-			orders[product] = make([]*Order, 0)
-		}
-		orders[product] = append(orders[product], order)
+		orders = append(orders, &Order{id, exchange_id})
 	}
 	rows.Close()
 	return orders, nil

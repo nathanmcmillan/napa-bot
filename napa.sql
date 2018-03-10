@@ -1,11 +1,12 @@
 
 create table accounts (
     id integer primary key autoincrement,
+    product text unique,
     funds real
 );
 
 create table history (
-    unix integer unique, 
+    unix integer primary key, 
     product text,
     low real,
     high real,
@@ -16,7 +17,5 @@ create table history (
 
 create table orders (
     id integer primary key autoincrement,
-    product text,
-    price real,
-    size real
+    exchange_id text
 );

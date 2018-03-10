@@ -3,6 +3,7 @@ package gdax
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 )
@@ -12,7 +13,7 @@ const (
 )
 
 // Polling sends poll requests to exchange
-func Polling(auth *Authentication, settings *Settings, messages chan interface{}) {
+func Polling(auth *Authentication, settings *Settings, messages chan interface{}, signals chan os.Signal) {
 	if settings.EmaLong > candleLimit {
 		panic(errors.New("ema out of range"))
 	}
@@ -50,6 +51,9 @@ func Polling(auth *Authentication, settings *Settings, messages chan interface{}
 				wait = interval
 			}
 			fmt.Println("poll thread sleeping for", wait)
+			
+			USE TICKER INSTEAD OF SLEEP, AND THEN SWITCH STATEMENT ON TICKER + SIGNAL CHANNELS
+			
 			time.Sleep(wait)
 		}
 	}
