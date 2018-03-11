@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
+	"log"
 	"strconv"
 
 	"github.com/gorilla/websocket"
 )
 
 // ExchangeSocket dials websocket to exchange
-func ExchangeSocket(settings *Settings, messages chan interface{}, signals chan os.Signal) error {
+func ExchangeSocket(settings *Settings, messages chan interface{}, done chan bool) error {
 
 	fmt.Println("dialing exchange")
 	connection, _, err := websocket.DefaultDialer.Dial(apiSocket, nil)
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 	defer connection.Close()
@@ -46,14 +47,21 @@ func ExchangeSocket(settings *Settings, messages chan interface{}, signals chan 
 	js := json.RawMessage(rawJs)
 	err = connection.WriteJSON(js)
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
+	go func() {
+		<-done
+		fmt.Println("closing exchange websocket")
+		connection.Close()
+	}()
 	fmt.Println("listening to exchange")
 	for {
 		var js interface{}
 		err := connection.ReadJSON(&js)
 		if err != nil {
+			log.Println(err)
 			fmt.Println(err)
 			break
 		}
@@ -77,5 +85,6 @@ func ExchangeSocket(settings *Settings, messages chan interface{}, signals chan 
 			messages <- ticker
 		}
 	}
+	fmt.Println("exchange websocket closed")
 	return nil
 }

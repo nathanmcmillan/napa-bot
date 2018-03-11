@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -45,8 +46,10 @@ func NewTrader(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, s
 func (trader *Trade) Run() {
 
 	messages := make(chan interface{})
-	go gdax.ExchangeSocket(trader.Settings, messages, trader.Signals)
-	go gdax.Polling(trader.Auth, trader.Settings, messages, trader.Signals)
+	socketDone := make(chan bool)
+	pollingDone := make(chan bool)
+	go gdax.ExchangeSocket(trader.Settings, messages, socketDone)
+	go gdax.Polling(trader.Auth, trader.Settings, messages, pollingDone)
 
 	retryWait := int64(1)
 	retryLimit := int64(3)
@@ -68,6 +71,7 @@ func (trader *Trade) Run() {
 			break
 		}
 		if tries >= retryLimit {
+			log.Println(err)
 			panic(err)
 		}
 		tries++
@@ -98,12 +102,13 @@ func (trader *Trade) Run() {
 	for i := 0; i < len(storedOrders); i++ {
 		order, err := gdax.GetOrder(trader.Auth, storedOrders[i].ExchangeID)
 		if err != nil {
+			log.Println(err)
 			fmt.Println("error getting order", err)
 			continue
 		}
 		trader.Orders[order.Product] = append(trader.Orders[order.Product], order)
 	}
-	loop:
+loop:
 	for {
 		select {
 		case rawMessage := <-messages:
@@ -125,7 +130,9 @@ func (trader *Trade) Run() {
 				fmt.Println("error", message)
 			}
 		case signalMessage := <-trader.Signals:
-			fmt.Println("signal", signalMessage, "closing napa bot")
+			fmt.Println(" signal", signalMessage, "closing trader")
+			socketDone <- true
+			pollingDone <- true
 			break loop
 		}
 	}
@@ -160,6 +167,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 	parse.End(rawJs)
 	exchangeOrder, err := gdax.PlaceOrder(trader.Auth, rawJs.String())
 	if err != nil {
+		log.Println(err)
 		fmt.Println("error placing order", rawJs, err)
 		return
 	}
@@ -176,6 +184,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 			time.Sleep(time.Second)
 			exchangeOrderUpdate, err := gdax.GetOrder(trader.Auth, exchangeOrder.ID)
 			if err != nil {
+				log.Println(err)
 				fmt.Println("error getting order", err)
 				continue
 			}
@@ -191,6 +200,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 func (trader *Trade) buy(product string) {
 	accounts, err := gdax.GetAccounts(trader.Auth)
 	if err != nil {
+		log.Println(err)
 		panic(err)
 	}
 	fmt.Println("Accounts:", accounts)
@@ -219,6 +229,7 @@ func (trader *Trade) buy(product string) {
 	parse.End(rawJs)
 	exchangeOrder, err := gdax.PlaceOrder(trader.Auth, rawJs.String())
 	if err != nil {
+		log.Println(err)
 		fmt.Println("error placing order", rawJs, err)
 		return
 	}
@@ -236,6 +247,7 @@ func (trader *Trade) buy(product string) {
 			time.Sleep(time.Second)
 			exchangeOrderUpdate, err := gdax.GetOrder(trader.Auth, exchangeOrder.ID)
 			if err != nil {
+				log.Println(err)
 				fmt.Println("error getting order", err)
 				continue
 			}

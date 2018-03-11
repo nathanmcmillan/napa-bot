@@ -1,3 +1,5 @@
 private.json
 *.db
 *.exe
+*.txt
+log.*

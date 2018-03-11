@@ -3,7 +3,7 @@ package gdax
 import (
 	"errors"
 	"fmt"
-	"os"
+	"log"
 	"strconv"
 	"time"
 )
@@ -13,7 +13,7 @@ const (
 )
 
 // Polling sends poll requests to exchange
-func Polling(auth *Authentication, settings *Settings, messages chan interface{}, signals chan os.Signal) {
+func Polling(auth *Authentication, settings *Settings, messages chan interface{}, done chan bool) {
 	if settings.EmaLong > candleLimit {
 		panic(errors.New("ema out of range"))
 	}
@@ -30,6 +30,7 @@ func Polling(auth *Authentication, settings *Settings, messages chan interface{}
 			fmt.Println("polling", settings.Products[i], "from", start, "to", now)
 			history, err := GetHistory(settings.Products[i], start.Format(time.RFC3339), now.Format(time.RFC3339), granularity)
 			if err != nil {
+				log.Println(err)
 				messages <- err
 				time.Sleep(time.Second)
 				continue
@@ -51,10 +52,16 @@ func Polling(auth *Authentication, settings *Settings, messages chan interface{}
 				wait = interval
 			}
 			fmt.Println("poll thread sleeping for", wait)
-			
-			USE TICKER INSTEAD OF SLEEP, AND THEN SWITCH STATEMENT ON TICKER + SIGNAL CHANNELS
-			
-			time.Sleep(wait)
+
+			waitTimer := time.NewTimer(wait)
+			select {
+			case <-waitTimer.C:
+				continue
+			case <-done:
+				waitTimer.Stop()
+				fmt.Println("closing poll thread")
+				return
+			}
 		}
 	}
 }

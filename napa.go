@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"./datastore"
 	"./gdax"
@@ -269,6 +271,15 @@ func getFile(path string) (map[string]interface{}, error) {
 func main() {
 	fmt.Println("napa bot")
 
+	// logging
+	logFile, err := os.OpenFile("log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer logFile.Close()
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetOutput(logFile)
+
 	if len(os.Args) > 1 {
 		if os.Args[1] == "install" {
 			install()
@@ -295,11 +306,13 @@ func main() {
 	// load files
 	public, err := getFile("./public.json")
 	if err != nil {
+		log.Println(err)
 		panic(err)
 	}
 
 	private, err := getFile("../private.json")
 	if err != nil {
+		log.Println(err)
 		panic(err)
 	}
 
@@ -321,6 +334,7 @@ func main() {
 	// database
 	db, err := sql.Open(databaseDriver, databaseName)
 	if err != nil {
+		log.Println(err)
 		panic(err)
 	}
 	defer db.Close()
@@ -331,4 +345,6 @@ func main() {
 	// trade
 	trade := trader.NewTrader(db, auth, settings, signals)
 	trade.Run()
+
+	time.Sleep(time.Second)
 }
