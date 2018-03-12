@@ -1,17 +1,15 @@
 package trader
 
 import (
-	"bytes"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	"../datastore"
 	"../gdax"
-	"../parse"
+	"../analysis"
 )
 
 // Trade manages trading functions
@@ -21,10 +19,9 @@ type Trade struct {
 	Settings   *gdax.Settings
 	Signals    chan os.Signal
 	Accounts   map[string]*datastore.Account
-	Macd       map[string]*Macd
-	Ticker     map[string]*MovingAverage
+	Macd       map[string]*analysis.Macd
+	Ticker     map[string]*analysis.MovingAverage
 	Orders     map[string][]*gdax.Order
-	OpenOrders map[string][]*gdax.Order
 }
 
 // NewTrader constructor
@@ -35,10 +32,9 @@ func NewTrader(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, s
 	trader.Settings = settings
 	trader.Signals = signals
 	trader.Accounts = make(map[string]*datastore.Account)
-	trader.Macd = make(map[string]*Macd)
-	trader.Ticker = make(map[string]*MovingAverage)
+	trader.Macd = make(map[string]*analysis.Macd)
+	trader.Ticker = make(map[string]*analysis.MovingAverage)
 	trader.Orders = make(map[string][]*gdax.Order, 0)
-	trader.OpenOrders = make(map[string][]*gdax.Order, 0)
 	return trader
 }
 
@@ -58,9 +54,8 @@ func (trader *Trade) Run() {
 
 	for i := 0; i < len(trader.Settings.Products); i++ {
 		product := trader.Settings.Products[i]
-		trader.Ticker[product] = NewMovingAverage(10)
+		trader.Ticker[product] = analysis.NewMovingAverage(10)
 		trader.Orders[product] = make([]*gdax.Order, 0)
-		trader.OpenOrders[product] = make([]*gdax.Order, 0)
 	}
 
 	var storedAccounts []*datastore.Account
@@ -119,7 +114,7 @@ loop:
 				fmt.Println(message.ProductID, "| TICKER", move.Current, "|")
 				trader.process(message.ProductID)
 			case *gdax.CandleList:
-				mac := NewMacd(trader.Settings.EmaShort, trader.Settings.EmaLong, message.List[0].Closing)
+				mac := analysis.NewMacd(trader.Settings.EmaShort, trader.Settings.EmaLong, message.List[0].Closing)
 				for j := 1; j < len(message.List); j++ {
 					mac.Update(message.List[j].Closing)
 				}
@@ -155,107 +150,4 @@ func (trader *Trade) process(product string) {
 	} else if macd.Signal == "buy" {
 		trader.buy(product)
 	}
-}
-
-func (trader *Trade) sell(product string, order *gdax.Order) {
-	var rawJs *bytes.Buffer
-	parse.Begin(rawJs)
-	parse.First(rawJs, "type", "market")
-	parse.Append(rawJs, "side", "sell")
-	parse.Append(rawJs, "product_id", product)
-	parse.Append(rawJs, "size", strconv.FormatFloat(order.Size, 'f', -1, 64))
-	parse.End(rawJs)
-	exchangeOrder, err := gdax.PlaceOrder(trader.Auth, rawJs.String())
-	if err != nil {
-		log.Println(err)
-		fmt.Println("error placing order", rawJs, err)
-		return
-	}
-	fmt.Println(exchangeOrder)
-	trader.OpenOrders[product] = append(trader.OpenOrders[product], exchangeOrder)
-	go (func() {
-		attempts := 0
-		for {
-			attempts++
-			if attempts == 10 {
-				fmt.Println("update order attempt limit")
-				return
-			}
-			time.Sleep(time.Second)
-			exchangeOrderUpdate, err := gdax.GetOrder(trader.Auth, exchangeOrder.ID)
-			if err != nil {
-				log.Println(err)
-				fmt.Println("error getting order", err)
-				continue
-			}
-			if exchangeOrderUpdate.Settled {
-				datastore.RemoveOrder(trader.Datastore, order.ID)
-				fmt.Println("original buy", order, "sold as", exchangeOrderUpdate)
-				return
-			}
-		}
-	})()
-}
-
-func (trader *Trade) buy(product string) {
-	accounts, err := gdax.GetAccounts(trader.Auth)
-	if err != nil {
-		log.Println(err)
-		panic(err)
-	}
-	fmt.Println("Accounts:", accounts)
-	var usd *gdax.Account
-	for i := 0; i < len(accounts); i++ {
-		account := accounts[i]
-		if account.Currency == "USD" {
-			usd = &account
-			break
-		}
-	}
-	if usd == nil {
-		fmt.Println("USD wallet not found")
-		return
-	}
-	if trader.Accounts[product].Funds < 2000.0 || usd.Available < 2000.0 {
-		fmt.Println("not enough usd available $", usd.Available, "funds in account", product, "$", trader.Accounts[product].Funds)
-		return
-	}
-	var rawJs *bytes.Buffer
-	parse.Begin(rawJs)
-	parse.First(rawJs, "type", "market")
-	parse.Append(rawJs, "side", "buy")
-	parse.Append(rawJs, "product_id", product)
-	parse.Append(rawJs, "funds", "0.0")
-	parse.End(rawJs)
-	exchangeOrder, err := gdax.PlaceOrder(trader.Auth, rawJs.String())
-	if err != nil {
-		log.Println(err)
-		fmt.Println("error placing order", rawJs, err)
-		return
-	}
-	fmt.Println(exchangeOrder)
-	datastore.ArchiveOrder(trader.Datastore, exchangeOrder.ID)
-	trader.OpenOrders[product] = append(trader.OpenOrders[product], exchangeOrder)
-	go (func() {
-		attempts := 0
-		for {
-			attempts++
-			if attempts == 10 {
-				fmt.Println("update order attempt limit")
-				return
-			}
-			time.Sleep(time.Second)
-			exchangeOrderUpdate, err := gdax.GetOrder(trader.Auth, exchangeOrder.ID)
-			if err != nil {
-				log.Println(err)
-				fmt.Println("error getting order", err)
-				continue
-			}
-			if exchangeOrderUpdate.Settled {
-				datastore.ArchiveOrder(trader.Datastore, exchangeOrder.ID)
-				fmt.Println("buy", exchangeOrderUpdate)
-				return
-			}
-		}
-	})()
 }
