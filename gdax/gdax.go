@@ -1,97 +1,16 @@
 package gdax
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
 	"sort"
-
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"strconv"
-	"time"
 )
-
-const (
-	api       = "https://api.gdax.com"
-	apiSocket = "wss://ws-feed.gdax.com"
-	get       = "GET"
-	post      = "POST"
-)
-
-func request(method, url string, body io.Reader) (*http.Client, *http.Request, error) {
-	client := &http.Client{}
-	request, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, nil, err
-	}
-	request.Header.Add("Accept", "application/json")
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("User-Agent", "napa")
-	return client, request, nil
-}
-
-func publicRequest(method, url string) ([]byte, error) {
-	client, request, err := request(method, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	return ioutil.ReadAll(response.Body)
-}
-
-func privateRequest(method, site, path, body string, auth *Authentication) ([]byte, error) {
-	var data io.Reader
-	if body != "" {
-		message, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		data = bytes.NewReader(message)
-	}
-
-	client, request, err := request(method, site+path, data)
-	if err != nil {
-		return nil, err
-	}
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	what := timestamp + method + path + body
-	base64key, err := base64.StdEncoding.DecodeString(auth.Secret)
-	if err != nil {
-		return nil, err
-	}
-	hashMessage := hmac.New(sha256.New, base64key)
-	_, err = hashMessage.Write([]byte(what))
-	if err != nil {
-		return nil, err
-	}
-	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
-
-	request.Header.Add("CB-ACCESS-KEY", auth.Key)
-	request.Header.Add("CB-ACCESS-SIGN", signature)
-	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
-	request.Header.Add("CB-ACCESS-PASSPHRASE", auth.Passphrase)
-
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	return ioutil.ReadAll(response.Body)
-}
 
 // GetCurrencies list of currencies
-func GetCurrencies() (interface{}, error) {
-	body, err := publicRequest(get, api+"/currencies")
+func (r *Rest) GetCurrencies() (interface{}, error) {
+	body, err := r.publicRequest(get, api+"/currencies")
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +23,8 @@ func GetCurrencies() (interface{}, error) {
 }
 
 // GetBook map of level 2 product books
-func GetBook(product string) (interface{}, error) {
-	body, err := publicRequest(get, api+"/products/"+product+"/book?level=2")
+func (r *Rest) GetBook(product string) (interface{}, error) {
+	body, err := r.publicRequest(get, api+"/products/"+product+"/book?level=2")
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +37,8 @@ func GetBook(product string) (interface{}, error) {
 }
 
 // GetTicker map of product ticker
-func GetTicker(product string) (interface{}, error) {
-	body, err := publicRequest(get, api+"/products/"+product+"/ticker")
+func (r *Rest) GetTicker(product string) (interface{}, error) {
+	body, err := r.publicRequest(get, api+"/products/"+product+"/ticker")
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +51,8 @@ func GetTicker(product string) (interface{}, error) {
 }
 
 // GetTrades map of product trades
-func GetTrades(product string) (interface{}, error) {
-	body, err := publicRequest(get, api+"/products/"+product+"/trades")
+func (r *Rest) GetTrades(product string) (interface{}, error) {
+	body, err := r.publicRequest(get, api+"/products/"+product+"/trades")
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +65,8 @@ func GetTrades(product string) (interface{}, error) {
 }
 
 // GetHistory list of candles for product history
-func GetHistory(product, start, end, granularity string) (*CandleList, error) {
-	body, err := publicRequest(get, api+"/products/"+product+"/candles?start="+start+"&end="+end+"&granularity="+granularity)
+func (r *Rest) GetHistory(product, start, end, granularity string) (*CandleList, error) {
+	body, err := r.publicRequest(get, api+"/products/"+product+"/candles?start="+start+"&end="+end+"&granularity="+granularity)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +96,8 @@ func GetHistory(product, start, end, granularity string) (*CandleList, error) {
 }
 
 // GetStats map of 24 hour product statistics
-func GetStats(product string) (interface{}, error) {
-	body, err := publicRequest(get, api+"/products/"+product+"/stats")
+func (r *Rest) GetStats(product string) (interface{}, error) {
+	body, err := r.publicRequest(get, api+"/products/"+product+"/stats")
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +110,8 @@ func GetStats(product string) (interface{}, error) {
 }
 
 // GetAccounts map of account balances
-func GetAccounts(auth *Authentication) ([]Account, error) {
-	body, err := privateRequest(get, api, "/accounts", "", auth)
+func (r *Rest) GetAccounts() ([]Account, error) {
+	body, err := r.privateRequest(get, api, "/accounts", "")
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +142,8 @@ func GetAccounts(auth *Authentication) ([]Account, error) {
 }
 
 // PlaceOrder send a buy or sell order
-func PlaceOrder(auth *Authentication, rawJs string) (*Order, error) {
-	body, err := privateRequest(post, api, "/orders", rawJs, auth)
+func (r *Rest) PlaceOrder(rawJs string) (*Order, error) {
+	body, err := r.privateRequest(post, api, "/orders", rawJs)
 	if err != nil {
 		return nil, err
 	}
@@ -258,8 +177,8 @@ func PlaceOrder(auth *Authentication, rawJs string) (*Order, error) {
 }
 
 // ListOrders get open orders
-func ListOrders(auth *Authentication) (map[string][]*Order, error) {
-	body, err := privateRequest(get, api, "/orders", "", auth)
+func (r *Rest) ListOrders() (map[string][]*Order, error) {
+	body, err := r.privateRequest(get, api, "/orders", "")
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +227,8 @@ func ListOrders(auth *Authentication) (map[string][]*Order, error) {
 }
 
 // GetOrder get an order by id
-func GetOrder(auth *Authentication, orderID string) (*Order, error) {
-	body, err := privateRequest(get, api, "/orders/"+orderID, "", auth)
+func (r *Rest) GetOrder(orderID string) (*Order, error) {
+	body, err := r.privateRequest(get, api, "/orders/"+orderID, "")
 	if err != nil {
 		return nil, err
 	}

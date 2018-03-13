@@ -39,7 +39,69 @@ var (
 	indexFileJS   []byte
 )
 
-func addFunds(product, usd string) {
+func input() {
+	if os.Args[1] == "install" {
+		install()
+	} else if os.Args[1] == "server" {
+		server()
+	} else if os.Args[1] == "fund" {
+		if len(os.Args) < 4 {
+			fmt.Println("fund [product] [usd]")
+			return
+		}
+		fund(os.Args[2], os.Args[3])
+	} else if os.Args[1] == "list" {
+		list()
+	} else if os.Args[1] == "buy" {
+		if len(os.Args) < 4 {
+			fmt.Println("buy [product] [usd]")
+			return
+		}
+		buy(os.Args[2], os.Args[3])
+	} else if os.Args[1] == "sell" {
+		if len(os.Args) < 4 {
+			fmt.Println("sell [product] [amount]")
+			return
+		}
+		sell(os.Args[2], os.Args[3])
+	}
+}
+
+func buy(product, usd string) {
+	fmt.Println("buy", product, "$", usd)
+	fund, err := strconv.ParseFloat(usd, 64)
+	if err != nil {
+		panic(err)
+	}
+	db, err := sql.Open(databaseDriver, databaseName)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	settings := settings()
+	auth := authentication()
+	rest := gdax.NewRest(auth)
+	signals := make(chan os.Signal)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	trade := trader.NewTrader(db, rest, settings, signals)
+	order, err := trade.PlaceMarketBuy(product, fund)
+	if err == nil {
+		fmt.Println(order)
+	}  else {
+		fmt.Println(err)	
+	}
+}
+
+func sell(product, amount string) {
+	fmt.Println("sell", product, "amount", amount)
+	_, err := strconv.ParseFloat(amount, 64)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func fund(product, usd string) {
 	fmt.Println("funding", product, "$", usd)
 	amount, err := strconv.ParseFloat(usd, 64)
 	if err != nil {
@@ -53,7 +115,7 @@ func addFunds(product, usd string) {
 	datastore.NewAccount(db, product, amount)
 }
 
-func listAccounts() {
+func list() {
 	db, err := sql.Open(databaseDriver, databaseName)
 	if err != nil {
 		panic(err)
@@ -268,6 +330,36 @@ func getFile(path string) (map[string]interface{}, error) {
 	return js, nil
 }
 
+func settings() *gdax.Settings {
+	// load files
+	public, err := getFile("./public.json")
+	if err != nil {
+		log.Println(err)
+		panic(err)
+	}
+	s := &gdax.Settings{}
+	s.Products = parse.StringList(public, "products")
+	s.Channels = parse.StringList(public, "channels")
+	s.Seconds = parse.Integer(public, "seconds")
+	s.EmaShort = parse.Integer(public, "ema-short")
+	s.EmaLong = parse.Integer(public, "ema-long")
+	s.RsiPeriods = parse.Integer(public, "rsi")
+	return s
+}
+
+func authentication() *gdax.Authentication {
+	private, err := getFile("../private.json")
+	if err != nil {
+		log.Println(err)
+		panic(err)
+	}
+	a := &gdax.Authentication{}
+	a.Key = parse.Text(private, "key")
+	a.Secret = parse.Text(private, "secret")
+	a.Passphrase = parse.Text(private, "phrase")
+	return a
+}
+
 func main() {
 	fmt.Println("napa bot")
 
@@ -281,55 +373,14 @@ func main() {
 	log.SetOutput(logFile)
 
 	if len(os.Args) > 1 {
-		if os.Args[1] == "install" {
-			install()
-		} else if os.Args[1] == "server" {
-			server()
-		} else if os.Args[1] == "fund" {
-			if len(os.Args) > 3 {
-				addFunds(os.Args[2], os.Args[3])
-			} else {
-				fmt.Println("fund [product] [usd]")
-			}
-		} else if os.Args[1] == "list" {
-			if len(os.Args) > 2 {
-				if os.Args[2] == "accounts" {
-					listAccounts()
-				}
-			} else {
-				fmt.Println("list [accounts]")
-			}
-		}
+		input()
 		return
 	}
 
-	// load files
-	public, err := getFile("./public.json")
-	if err != nil {
-		log.Println(err)
-		panic(err)
-	}
-
-	private, err := getFile("../private.json")
-	if err != nil {
-		log.Println(err)
-		panic(err)
-	}
-
-	settings := &gdax.Settings{}
-	settings.Products = parse.StringList(public, "products")
-	settings.Channels = parse.StringList(public, "channels")
-	settings.Seconds = parse.Integer(public, "seconds")
-	settings.EmaShort = parse.Integer(public, "ema-short")
-	settings.EmaLong = parse.Integer(public, "ema-long")
-	settings.RsiPeriods = parse.Integer(public, "rsi")
-
+	settings := settings()
+	auth := authentication()
+	rest := gdax.NewRest(auth)
 	fmt.Println("settings", settings)
-
-	auth := &gdax.Authentication{}
-	auth.Key = parse.Text(private, "key")
-	auth.Secret = parse.Text(private, "secret")
-	auth.Passphrase = parse.Text(private, "phrase")
 
 	// database
 	db, err := sql.Open(databaseDriver, databaseName)
@@ -343,7 +394,7 @@ func main() {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	// trade
-	trade := trader.NewTrader(db, auth, settings, signals)
+	trade := trader.NewTrader(db, rest, settings, signals)
 	trade.Run()
 
 	time.Sleep(time.Second)

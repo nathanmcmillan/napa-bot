@@ -7,28 +7,28 @@ import (
 	"os"
 	"time"
 
+	"../analysis"
 	"../datastore"
 	"../gdax"
-	"../analysis"
 )
 
 // Trade manages trading functions
 type Trade struct {
-	Datastore  *sql.DB
-	Auth       *gdax.Authentication
-	Settings   *gdax.Settings
-	Signals    chan os.Signal
-	Accounts   map[string]*datastore.Account
-	Macd       map[string]*analysis.Macd
-	Ticker     map[string]*analysis.MovingAverage
-	Orders     map[string][]*gdax.Order
+	Datastore *sql.DB
+	Rest      *gdax.Rest
+	Settings  *gdax.Settings
+	Signals   chan os.Signal
+	Accounts  map[string]*datastore.Account
+	Macd      map[string]*analysis.Macd
+	Ticker    map[string]*analysis.MovingAverage
+	Orders    map[string][]*gdax.Order
 }
 
 // NewTrader constructor
-func NewTrader(db *sql.DB, auth *gdax.Authentication, settings *gdax.Settings, signals chan os.Signal) *Trade {
+func NewTrader(db *sql.DB, rest *gdax.Rest, settings *gdax.Settings, signals chan os.Signal) *Trade {
 	trader := &Trade{}
 	trader.Datastore = db
-	trader.Auth = auth
+	trader.Rest = rest
 	trader.Settings = settings
 	trader.Signals = signals
 	trader.Accounts = make(map[string]*datastore.Account)
@@ -45,7 +45,7 @@ func (trader *Trade) Run() {
 	socketDone := make(chan bool)
 	pollingDone := make(chan bool)
 	go gdax.ExchangeSocket(trader.Settings, messages, socketDone)
-	go gdax.Polling(trader.Auth, trader.Settings, messages, pollingDone)
+	go trader.Rest.Polling(trader.Settings, messages, pollingDone)
 
 	retryWait := int64(1)
 	retryLimit := int64(3)
@@ -95,7 +95,7 @@ func (trader *Trade) Run() {
 	}
 	fmt.Println("stored orders :", storedOrders)
 	for i := 0; i < len(storedOrders); i++ {
-		order, err := gdax.GetOrder(trader.Auth, storedOrders[i].ExchangeID)
+		order, err := trader.Rest.GetOrder(storedOrders[i].ExchangeID)
 		if err != nil {
 			log.Println(err)
 			fmt.Println("error getting order", err)
@@ -111,7 +111,6 @@ loop:
 			case gdax.Ticker:
 				move := trader.Ticker[message.ProductID]
 				move.Rolling(message.Price)
-				fmt.Println(message.ProductID, "| TICKER", move.Current, "|")
 				trader.process(message.ProductID)
 			case *gdax.CandleList:
 				mac := analysis.NewMacd(trader.Settings.EmaShort, trader.Settings.EmaLong, message.List[0].Closing)
@@ -143,11 +142,14 @@ func (trader *Trade) process(product string) {
 	if macd.Signal == "sell" {
 		for i := 0; i < len(orders); i++ {
 			order := orders[i]
-			if gdax.ProfitPrice(product, order.ExecutedValue) >= ticker {
+			profitPrice := gdax.ProfitPrice(product, order.ExecutedValue)
+			fmt.Println(product, "|", profitPrice, ">", ticker)
+			if profitPrice >= ticker {
 				trader.sell(product, order)
 			}
 		}
 	} else if macd.Signal == "buy" {
 		trader.buy(product)
+		macd.Signal = "wait"
 	}
 }

@@ -13,7 +13,7 @@ const (
 )
 
 // Polling sends poll requests to exchange
-func Polling(auth *Authentication, settings *Settings, messages chan interface{}, done chan bool) {
+func (r *Rest) Polling(settings *Settings, messages chan interface{}, done chan bool) {
 	if settings.EmaLong > candleLimit {
 		panic(errors.New("ema out of range"))
 	}
@@ -28,7 +28,7 @@ func Polling(auth *Authentication, settings *Settings, messages chan interface{}
 			now := time.Now().UTC()
 			start := time.Now().UTC().Add(beginning)
 			fmt.Println("polling", settings.Products[i], "from", start, "to", now)
-			history, err := GetHistory(settings.Products[i], start.Format(time.RFC3339), now.Format(time.RFC3339), granularity)
+			history, err := r.GetHistory(settings.Products[i], start.Format(time.RFC3339), now.Format(time.RFC3339), granularity)
 			if err != nil {
 				log.Println(err)
 				messages <- err
@@ -44,7 +44,6 @@ func Polling(auth *Authentication, settings *Settings, messages chan interface{}
 					known = true
 				}
 			}
-			time.Sleep(time.Second)
 		}
 
 		if known {

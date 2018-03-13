@@ -13,7 +13,7 @@ import (
 )
 
 func (trader *Trade) buy(product string) {
-	accounts, err := gdax.GetAccounts(trader.Auth)
+	accounts, err := trader.Rest.GetAccounts()
 	if err != nil {
 		log.Println(err)
 		panic(err)
@@ -54,7 +54,7 @@ func (trader *Trade) buy(product string) {
 			break
 		}
 		time.Sleep(time.Second)
-		exchangeOrderUpdate, err := gdax.GetOrder(trader.Auth, exchangeOrder.ID)
+		exchangeOrderUpdate, err := trader.Rest.GetOrder(exchangeOrder.ID)
 		if err != nil {
 			log.Println(err)
 			fmt.Println("error getting order", err)
@@ -86,7 +86,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 			break
 		}
 		time.Sleep(time.Second)
-		exchangeOrderUpdate, err := gdax.GetOrder(trader.Auth, exchangeOrder.ID)
+		exchangeOrderUpdate, err := trader.Rest.GetOrder(exchangeOrder.ID)
 		if err != nil {
 			log.Println(err)
 			fmt.Println("error getting order", err)
@@ -106,7 +106,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 			if !found {
 				msg := "original buy order not found in order list"
 				log.Println(msg)
-				fmt.Println(msg)	
+				fmt.Println(msg)
 			}
 			break
 		}
@@ -114,23 +114,27 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 }
 
 func (trader *Trade) PlaceMarketBuy(product string, usd float64) (*gdax.Order, error) {
-	var rawJs *bytes.Buffer
+	rawJs := &bytes.Buffer{}
 	parse.Begin(rawJs)
 	parse.First(rawJs, "type", "market")
 	parse.Append(rawJs, "side", "buy")
 	parse.Append(rawJs, "product_id", product)
 	parse.Append(rawJs, "funds", strconv.FormatFloat(usd, 'f', -1, 64))
 	parse.End(rawJs)
-	return gdax.PlaceOrder(trader.Auth, rawJs.String())
+	str := rawJs.String()
+	fmt.Println(str)
+	return trader.Rest.PlaceOrder(str)
 }
 
 func (trader *Trade) PlaceMarketSell(product string, size float64) (*gdax.Order, error) {
-	var rawJs *bytes.Buffer
+	rawJs := &bytes.Buffer{}
 	parse.Begin(rawJs)
 	parse.First(rawJs, "type", "market")
 	parse.Append(rawJs, "side", "sell")
 	parse.Append(rawJs, "product_id", product)
 	parse.Append(rawJs, "size", strconv.FormatFloat(size, 'f', -1, 64))
 	parse.End(rawJs)
-	return gdax.PlaceOrder(trader.Auth, rawJs.String())
+	str := rawJs.String()
+	fmt.Println(str)
+	return trader.Rest.PlaceOrder(str)
 }
