@@ -95,6 +95,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 		if exchangeOrderUpdate.Settled {
 			fmt.Println("original buy", order, "sold as", exchangeOrderUpdate)
 			datastore.RemoveOrder(trader.Datastore, order.ID)
+			// datastore.UpdateAccount( add funds )
 			found := false
 			for i := 0; i < len(trader.Orders[product]); i++ {
 				if trader.Orders[product][i].ID == order.ID {
