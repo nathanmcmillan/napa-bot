@@ -10,29 +10,32 @@ import (
 	"time"
 )
 
+var (
+	interrupt = false
+)
+
 func main() {
 	fmt.Println("simple napa")
-	signals := signals()
+	signals()
 	logging()
 	o := orders()
-	fmt.Print("*orders*\n", o, "\n")
 	a := authentication()
 	acc, err := accounts(a)
 	if err != nil {
 		logger(err.Error())
 	}
 	fmt.Println(acc)
-loop:
+	product := "BTC-USD"
+	end := time.Now().UTC()
+	start := time.Now().UTC().Add(beginning)
+	fmt.Println("pollin", product, "from", start, "to", end)
+	c, err := candles(a, product, start.Format(time.RFC3339), end.Format(time.RFC3339), granularity)
 	for {
-		wait := time.NewTimer(time.Second * time.Duration(5))
-		select {
-		case <-wait.C:
-			fmt.Println("sleeping")
-			continue
-		case <-signals:
-			wait.Stop()
-			fmt.Println("signal interrupt")
-			break loop
+		fmt.Println("sleeping")
+		wait := time.NewTimer(time.Second)
+		<-wait.C
+		if interrupt {
+			break
 		}
 	}
 }
@@ -70,10 +73,14 @@ func authentication() *auth {
 	}
 }
 
-func signals() chan os.Signal {
+func signals() {
 	s := make(chan os.Signal)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
-	return s
+	go (func() {
+		<-s
+		interrupt = true
+		fmt.Println("signal interrupt")
+	})()
 }
 
 func logging() {
