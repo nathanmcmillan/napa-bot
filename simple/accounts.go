@@ -8,14 +8,14 @@ import (
 type account struct {
 	id        string
 	currency  string
-	balance   float64
-	available float64
-	hold      float64
+	balance   *currency
+	available *currency
+	hold      *currency
 	profileID string
 }
 
-func accounts(a *auth) ([]*account, error) {
-	body, err := privateRequest(a, get, "/accounts", "")
+func readAccounts(auth map[string]string) (map[string]*account, error) {
+	status, body, err := privateRequest(auth, get, "/accounts", "")
 	if err != nil {
 		return nil, err
 	}
@@ -34,20 +34,23 @@ func accounts(a *auth) ([]*account, error) {
 		str, _ := values["message"].(string)
 		return nil, errors.New(err.Error() + " -> " + str)
 	}
-	accounts := make([]*account, 0)
+	accounts := make(map[string]*account, 0)
 	for i := 0; i < len(decode); i++ {
 		values, ok := decode[i].(map[string]interface{})
 		if !ok {
 			return nil, errors.New("parse error accounts")
 		}
-		account := &account{}
-		account.id, _ = values["id"].(string)
-		account.currency, _ = values["currency"].(string)
-		account.balance, _ = values["balance"].(float64)
-		account.available, _ = values["available"].(float64)
-		account.hold, _ = values["hold"].(float64)
-		account.profileID, _ = values["profile_id"].(string)
-		accounts = append(accounts, account)
+		a := &account{}
+		a.id, _ = values["id"].(string)
+		a.currency, _ = values["currency"].(string)
+		temp, _ := values["balance"].(string)
+		a.balance = newCurrency(temp)
+		temp, _ = values["available"].(string)
+		a.available = newCurrency(temp)
+		temp, _ = values["hold"].(string)
+		a.hold = newCurrency(temp)
+		a.profileID, _ = values["profile_id"].(string)
+		accounts[a.currency] = a
 	}
 	return accounts, nil
 }

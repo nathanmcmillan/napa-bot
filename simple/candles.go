@@ -28,7 +28,7 @@ func (ls sortCandles) Less(left, right int) bool {
 }
 
 func candles(product, start, end, granularity string) ([]*candle, error) {
-	body, err := publicRequest(get, "/products/"+product+"/candles?start="+start+"&end="+end+"&granularity="+granularity)
+	status, body, err := publicRequest(get, "/products/"+product+"/candles?start="+start+"&end="+end+"&granularity="+granularity)
 	if err != nil {
 		return nil, err
 	}

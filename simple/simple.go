@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -18,30 +19,115 @@ func main() {
 	fmt.Println("simple napa")
 	signals()
 	logging()
-	o := orders()
-	a := authentication()
-	acc, err := accounts(a)
+	o := readList("orders.txt")
+	s := readMap("settings.txt")
+	a := readMap("../../private.txt")
+	fmt.Println(o)
+	fmt.Println(s)
+	acc, err := readAccounts(a)
 	if err != nil {
 		logger(err.Error())
+		return
 	}
-	fmt.Println(acc)
-	product := "BTC-USD"
-	end := time.Now().UTC()
-	start := time.Now().UTC().Add(beginning)
-	fmt.Println("pollin", product, "from", start, "to", end)
-	c, err := candles(a, product, start.Format(time.RFC3339), end.Format(time.RFC3339), granularity)
+	orders := make([]*order, 0)
+	for i := 0; i < len(o); i++ {
+		fmt.Println("reading order", o[i])
+		order, err := readOrder(a, o[i])
+		if err != nil {
+			logger(err.Error())
+			return
+		}
+		fmt.Println(order.executedValue)
+		orders = append(orders, order)
+		time.Sleep(time.Second)
+	}
+	product := s["product"]
+	granularity := s["granularity"]
+	ig, err := strconv.ParseInt(granularity, 10, 64)
+	if err != nil {
+		logger(err.Error())
+		return
+	}
+	es, err := strconv.ParseInt(s["ema-short"], 10, 64)
+	if err != nil {
+		logger(err.Error())
+		return
+	}
+	el, err := strconv.ParseInt(s["ema-long"], 10, 64)
+	if err != nil {
+		logger(err.Error())
+		return
+	}
+	interval := time.Second * time.Duration(ig)
+	offset := -interval * time.Duration(el)
+	sleeping := time.Second * time.Duration(2)
 	for {
-		fmt.Println("sleeping")
-		wait := time.NewTimer(time.Second)
-		<-wait.C
 		if interrupt {
 			break
+		}
+		end := time.Now().UTC()
+		start := time.Now().UTC().Add(offset)
+		fmt.Println("polling", product, "from", start, "to", end)
+		c, err := candles(product, start.Format(time.RFC3339), end.Format(time.RFC3339), granularity)
+		if err != nil {
+			logger(err.Error())
+			time.Sleep(time.Second)
+			continue
+		}
+		var wait time.Duration
+		if len(c) > 0 {
+			m := newMacd(es, el, c[0].closing)
+			for i := 1; i < len(c); i++ {
+				m.update(c[i].closing)
+			}
+			fmt.Println("*", product, "| MACD", m.current, "| SIGNAL", m.signal, "*")
+			// start process
+			if m.signal == "buy" {
+				zero := newCurrency("0.0")
+				if acc["USD"].available.cmp(zero) > 0 {
+					buy(a, "5.0")
+					// orders = append(orders, order)
+					// write to orders.txt
+				}
+			} else if m.signal == "sell" {
+				t, err := tick(product)
+				if err != nil {
+					logger(err.Error())
+					time.Sleep(time.Second)
+					continue
+				}
+				size := len(o)
+				for i := 0; i < size; i++ {
+					order := orders[i]
+					min := profitPrice(order)
+					fmt.Println("*", product, "|", min, ">", t.price, "*")
+					if min.cmp(t.price) > 0 {
+						sell(a, order)
+						// orders remove slice at index of order
+						// write to orders.txt
+					}
+				}
+			}
+			// end process
+			wait = interval - time.Now().Sub(time.Unix(c[len(c)-1].time, 0))
+			if wait < 0 {
+				wait = interval
+			}
+		} else {
+			wait = time.Second
+		}
+		fmt.Println("sleeping", wait)
+		for wait > 0 {
+			if interrupt {
+				break
+			}
+			<-time.NewTimer(sleeping).C
+			wait -= sleeping
 		}
 	}
 }
 
-func orders() []string {
-	path := "orders.txt"
+func readList(path string) []string {
 	for {
 		contents, err := ioutil.ReadFile(path)
 		if err == nil {
@@ -56,13 +142,11 @@ func orders() []string {
 	}
 }
 
-func authentication() *auth {
-	path := "../../private.txt"
+func readMap(path string) map[string]string {
 	for {
 		contents, err := ioutil.ReadFile(path)
 		if err == nil {
-			data := hashmap(contents)
-			return &auth{data["key"], data["secret"], data["phrase"]}
+			return hashmap(contents)
 		}
 		if os.IsNotExist(err) {
 			logger("file not found:", path)
