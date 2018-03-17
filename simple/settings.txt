@@ -1,0 +1,4 @@
+product     BTC-USD
+ema-short   12
+ema-long    26
+granularity 60

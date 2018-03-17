@@ -1,5 +1,6 @@
 private.json
-log.*
+private.txt
 *.db
 *.exe
-*.txt
+*/simple/simple
+*/napa-bot
