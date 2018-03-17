@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+const (
+	ordersFile = "orders.txt"
+)
+
 var (
 	interrupt = false
 )
@@ -19,7 +23,7 @@ func main() {
 	fmt.Println("simple napa")
 	signals()
 	logging()
-	o := readList("orders.txt")
+	o := readList(ordersFile)
 	s := readMap("settings.txt")
 	a := readMap("../../private.txt")
 	fmt.Println(o)
@@ -98,6 +102,7 @@ func main() {
 					continue
 				}
 				size := len(o)
+				updates := false
 				for i := 0; i < size; i++ {
 					order := orders[i]
 					min := profitPrice(order)
@@ -105,9 +110,13 @@ func main() {
 					if min.cmp(t.price) > 0 {
 						sell(a, order)
 						orders.delete(i)
-						// orders remove slice at index of order
-						// write to orders.txt
+						i--
+						size--
+						updates = true
 					}
+				}
+				if updates {
+					// write to file
 				}
 			}
 			// end process

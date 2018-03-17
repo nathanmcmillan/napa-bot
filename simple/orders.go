@@ -38,9 +38,10 @@ func (b *book) push(o *order) {
 }
 
 func (b *book) delete(i int) {
-	(*b)[i] = nil // not good
+	size := len(*b)
+	(*b)[i] = (*b)[size-1] 
+	*b = (*b)[:size-1]
 }
-
 
 type order struct {
 	id            string
