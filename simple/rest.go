@@ -31,43 +31,43 @@ func request(method, url string, body io.Reader) (*http.Client, *http.Request, e
 	return client, request, nil
 }
 
-func publicRequest(method, path string) (int, []byte, error) {
+func publicRequest(method, path string) ([]byte, error, int) {
 	client, request, err := request(method, website+path, nil)
 	if err != nil {
-		return 0, nil, err
+		return nil, err, 0
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return 0, nil, err
+		return nil, err, 0
 	}
 	defer response.Body.Close()
 	read, err := ioutil.ReadAll(response.Body)
-	return response.StatusCode, read, err
+	return read, err, response.StatusCode
 }
 
-func privateRequest(auth map[string]string, method, path, body string) (int, []byte, error) {
+func privateRequest(auth map[string]string, method, path, body string) ([]byte, error, int) {
 	var data io.Reader
 	if body != "" {
 		message, err := json.Marshal(body)
 		if err != nil {
-			return 0, nil, err
+			return nil, err, 0
 		}
 		data = bytes.NewReader(message)
 	}
 	client, request, err := request(method, website+path, data)
 	if err != nil {
-		return 0, nil, err
+		return nil, err, 0
 	}
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	what := timestamp + method + path + body
 	base64key, err := base64.StdEncoding.DecodeString(auth["secret"])
 	if err != nil {
-		return 0, nil, err
+		return nil, err, 0
 	}
 	hashMessage := hmac.New(sha256.New, base64key)
 	_, err = hashMessage.Write([]byte(what))
 	if err != nil {
-		return 0, nil, err
+		return nil, err, 0
 	}
 	signature := base64.StdEncoding.EncodeToString(hashMessage.Sum(nil))
 	request.Header.Add("CB-ACCESS-KEY", auth["key"])
@@ -76,9 +76,9 @@ func privateRequest(auth map[string]string, method, path, body string) (int, []b
 	request.Header.Add("CB-ACCESS-PASSPHRASE", auth["phrase"])
 	response, err := client.Do(request)
 	if err != nil {
-		return 0, nil, err
+		return nil, err, 0
 	}
 	defer response.Body.Close()
 	read, err := ioutil.ReadAll(response.Body)
-	return response.StatusCode, read, err
+	return read, err, response.StatusCode
 }

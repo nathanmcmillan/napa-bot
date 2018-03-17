@@ -12,6 +12,36 @@ var (
 	}
 )
 
+type book []*order
+
+/*func (b *book) push(o *order) {
+	*b = append(*b, o)
+}
+
+func (b *book) delete(i int) {
+	if i >= len(*b) {
+		return
+	}
+	(*b)[i] = (*b)[0]
+	*b = (*b)[1:]
+}*/
+
+func (b *book) push(o *order) {
+	size := len(*b)
+	for i := 0; i < size; i++ {
+		if (*b)[i] == nil {
+			(*b)[i] = o
+			return
+		}
+	}
+	*b = append(*b, o)
+}
+
+func (b *book) delete(i int) {
+	(*b)[i] = nil // not good
+}
+
+
 type order struct {
 	id            string
 	price         *currency
@@ -35,7 +65,7 @@ func profitPrice(o *order) *currency {
 }
 
 func readOrder(auth map[string]string, orderID string) (*order, error) {
-	status, body, err := privateRequest(auth, get, "/orders/"+orderID, "")
+	body, err, _ := privateRequest(auth, get, "/orders/"+orderID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +78,7 @@ func readOrder(auth map[string]string, orderID string) (*order, error) {
 }
 
 func postOrder(auth map[string]string, rawJs string) (*order, error) {
-	status, body, err := privateRequest(auth, post, "/orders", rawJs)
+	body, err, _ := privateRequest(auth, post, "/orders", rawJs)
 	if err != nil {
 		return nil, err
 	}

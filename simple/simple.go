@@ -29,7 +29,7 @@ func main() {
 		logger(err.Error())
 		return
 	}
-	orders := make([]*order, 0)
+	orders := make(book, 0)
 	for i := 0; i < len(o); i++ {
 		fmt.Println("reading order", o[i])
 		order, err := readOrder(a, o[i])
@@ -38,7 +38,7 @@ func main() {
 			return
 		}
 		fmt.Println(order.executedValue)
-		orders = append(orders, order)
+		orders.push(order)
 		time.Sleep(time.Second)
 	}
 	product := s["product"]
@@ -86,6 +86,7 @@ func main() {
 				zero := newCurrency("0.0")
 				if acc["USD"].available.cmp(zero) > 0 {
 					buy(a, "5.0")
+					orders.push(nil)
 					// orders = append(orders, order)
 					// write to orders.txt
 				}
@@ -103,6 +104,7 @@ func main() {
 					fmt.Println("*", product, "|", min, ">", t.price, "*")
 					if min.cmp(t.price) > 0 {
 						sell(a, order)
+						orders.delete(i)
 						// orders remove slice at index of order
 						// write to orders.txt
 					}
