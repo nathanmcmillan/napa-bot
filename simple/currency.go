@@ -26,8 +26,8 @@ func (c *currency) mul(o *currency) *currency {
 	return n
 }
 
-func (c *currency) cmp(o *currency) int {
-	return c.num.Cmp(o.num)
+func (c *currency) moreThan(o *currency) bool {
+	return c.num.Cmp(o.num) > 0
 }
 
 func (c *currency) str(precision int) string {

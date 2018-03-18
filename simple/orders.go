@@ -69,17 +69,17 @@ func readOrder(auth map[string]string, orderID string) (*order, error) {
 	return decodeOrder(decode), nil
 }
 
-func postOrder(auth map[string]string, rawJs string) (*order, error) {
-	body, err, _ := privateRequest(auth, post, "/orders", rawJs)
+func postOrder(auth map[string]string, rawJs string) (*order, error, int) {
+	body, err, status := privateRequest(auth, post, "/orders", rawJs)
 	if err != nil {
-		return nil, err
+		return nil, err, status
 	}
 	var decode map[string]interface{}
 	err = json.Unmarshal(body, &decode)
 	if err != nil {
-		return nil, err
+		return nil, err, status
 	}
-	return decodeOrder(decode), nil
+	return decodeOrder(decode), nil, status
 }
 
 func decodeOrder(d map[string]interface{}) *order {
