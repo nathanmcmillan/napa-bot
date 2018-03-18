@@ -11,12 +11,18 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"sync"
 )
 
 const (
 	get     = "GET"
 	post    = "POST"
 	website = "https://api.gdax.com"
+)
+
+var (
+	limit = &sync.Mutex{}
+	rate = time.Millisecond * time.Duration(500)
 )
 
 func request(method, url string, body io.Reader) (*http.Client, *http.Request, error) {
@@ -36,7 +42,10 @@ func publicRequest(method, path string) ([]byte, error, int) {
 	if err != nil {
 		return nil, err, 0
 	}
+	limit.Lock()
 	response, err := client.Do(request)
+	time.Sleep(rate)
+	limit.Unlock()
 	if err != nil {
 		return nil, err, 0
 	}
@@ -58,6 +67,7 @@ func privateRequest(auth map[string]string, method, path, body string) ([]byte, 
 	if err != nil {
 		return nil, err, 0
 	}
+	limit.Lock()
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	what := timestamp + method + path + body
 	base64key, err := base64.StdEncoding.DecodeString(auth["secret"])
@@ -75,6 +85,8 @@ func privateRequest(auth map[string]string, method, path, body string) ([]byte, 
 	request.Header.Add("CB-ACCESS-TIMESTAMP", timestamp)
 	request.Header.Add("CB-ACCESS-PASSPHRASE", auth["phrase"])
 	response, err := client.Do(request)
+	time.Sleep(rate)
+	limit.Unlock()
 	if err != nil {
 		return nil, err, 0
 	}

@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"errors"
 	"strings"
-	"time"
 )
 
 func process() {
@@ -34,7 +33,6 @@ func process() {
 		t, err := tick(product)
 		if err != nil {
 			logger(err.Error())
-			time.Sleep(time.Second)
 			return
 		}
 		for i := 0; i < len(orders); i++ {
