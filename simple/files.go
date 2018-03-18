@@ -1,5 +1,11 @@
 package main
 
+import (
+	"io/ioutil"
+	"os"
+	"time"
+)
+
 func readList(path string) []string {
 	for {
 		contents, err := ioutil.ReadFile(path)
@@ -30,17 +36,13 @@ func readMap(path string) map[string]string {
 	}
 }
 
-func writeList(path string, list []string) {
+func writeList(path string, list []byte) {
 	for {
-		contents, err := ioutil.ReadFile(path)
+		err := ioutil.WriteFile(path, list, 0644)
 		if err == nil {
-			return list(contents)
+			return
 		}
-		if os.IsNotExist(err) {
-			logger("file not found:", path)
-			os.Exit(0)
-		}
-		logger("failed to open file")
+		logger("failed to write to file", path)
 		time.Sleep(time.Second)
 	}
 }

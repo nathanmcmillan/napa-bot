@@ -1,0 +1,8 @@
+2018/03/17 20:37:09 simple.go:174: [file not found: ../../private.txt]
+2018/03/17 20:37:45 simple.go:174: [file not found: ../../private.txt]
+2018/03/17 20:38:25 simple.go:174: [json: cannot unmarshal object into Go value of type []interface {} -> CB-ACCESS-PASSPHRASE header is required]
+2018/03/17 20:44:05 simple.go:174: [json: cannot unmarshal object into Go value of type []interface {} -> CB-ACCESS-PASSPHRASE header is required]
+2018/03/17 20:44:11 simple.go:174: [json: cannot unmarshal object into Go value of type []interface {} -> CB-ACCESS-PASSPHRASE header is required]
+2018/03/17 20:47:37 simple.go:174: [strconv.ParseInt: parsing "": invalid syntax]
+2018/03/17 21:23:59 simple.go:170: [buying 5.0]
+2018/03/17 23:00:36 simple.go:193: [{, "type":"market", "side":"buy", "product_id":"BTC-USD", "funds":"0.0"}]

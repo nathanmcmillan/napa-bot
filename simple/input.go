@@ -1,12 +1,12 @@
 package main
 
 import (
-    "os"
-    "fmt"   
+	"fmt"
+	"os"
 )
 
 func input() {
 	if os.Args[1] == "install" {
-        fmt.Println("installing")
+		fmt.Println("installing")
 	}
 }

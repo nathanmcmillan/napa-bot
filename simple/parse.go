@@ -54,3 +54,26 @@ func list(src []byte) []string {
 	}
 	return data
 }
+
+func beginJs(b *strings.Builder) {
+	b.WriteString(`{`)
+}
+
+func endJs(b *strings.Builder) {
+	b.WriteString(`}`)
+}
+
+func firstJs(b *strings.Builder, name, value string) {
+	b.WriteString(`"`)
+	b.WriteString(name)
+	b.WriteString(`"`)
+	b.WriteString(`:`)
+	b.WriteString(`"`)
+	b.WriteString(value)
+	b.WriteString(`"`)
+}
+
+func pushJs(b *strings.Builder, name, value string) {
+	b.WriteString(`, `)
+	firstJs(b, name, value)
+}

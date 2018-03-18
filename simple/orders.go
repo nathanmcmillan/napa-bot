@@ -10,21 +10,12 @@ var (
 		"ETH-USD": newCurrency("1.003"),
 		"LTC-USD": newCurrency("1.003"),
 	}
+	precision = map[string]int{
+		"BTC-USD": 3,
+	}
 )
 
 type book []*order
-
-/*func (b *book) push(o *order) {
-	*b = append(*b, o)
-}
-
-func (b *book) delete(i int) {
-	if i >= len(*b) {
-		return
-	}
-	(*b)[i] = (*b)[0]
-	*b = (*b)[1:]
-}*/
 
 func (b *book) push(o *order) {
 	size := len(*b)
@@ -39,7 +30,7 @@ func (b *book) push(o *order) {
 
 func (b *book) delete(i int) {
 	size := len(*b)
-	(*b)[i] = (*b)[size-1] 
+	(*b)[i] = (*b)[size-1]
 	*b = (*b)[:size-1]
 }
 

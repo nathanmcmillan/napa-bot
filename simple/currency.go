@@ -29,3 +29,7 @@ func (c *currency) mul(o *currency) *currency {
 func (c *currency) cmp(o *currency) int {
 	return c.num.Cmp(o.num)
 }
+
+func (c *currency) str(precision int) string {
+	return c.num.FloatString(precision)
+}

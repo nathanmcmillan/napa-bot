@@ -2,17 +2,18 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
 
 const (
-	ordersFile = "orders.txt"
+	orderFile     = "orders.txt"
+	orderSwapFile = "orders_swap.txt"
 )
 
 var (
@@ -23,7 +24,7 @@ func main() {
 	fmt.Println("simple napa")
 	signals()
 	logging()
-	o := readList(ordersFile)
+	o := readList(orderFile)
 	s := readMap("settings.txt")
 	a := readMap("../../private.txt")
 	fmt.Println(o)
@@ -65,13 +66,16 @@ func main() {
 	interval := time.Second * time.Duration(ig)
 	offset := -interval * time.Duration(el)
 	sleeping := time.Second * time.Duration(2)
+	var algo *macd
+	candleTime := int64(0)
+	regulate := true
 	for {
 		if interrupt {
 			break
 		}
 		end := time.Now().UTC()
 		start := time.Now().UTC().Add(offset)
-		fmt.Println("polling", product, "from", start, "to", end)
+		fmt.Println("*", product, "|", start, "|", end, "*")
 		c, err := candles(product, start.Format(time.RFC3339), end.Format(time.RFC3339), granularity)
 		if err != nil {
 			logger(err.Error())
@@ -79,53 +83,79 @@ func main() {
 			continue
 		}
 		var wait time.Duration
-		if len(c) > 0 {
-			m := newMacd(es, el, c[0].closing)
-			for i := 1; i < len(c); i++ {
-				m.update(c[i].closing)
+		if len(c) > 0 && c[len(c)-1].time > candleTime {
+			var i int
+			if algo == nil {
+				algo = newMacd(es, el, c[0].closing)
+				candleTime = c[0].time
+				i = 1
+			} else {
+				i = 0
 			}
-			fmt.Println("*", product, "| MACD", m.current, "| SIGNAL", m.signal, "*")
+			for i < len(c) {
+				ctime := c[i].time
+				if candleTime < ctime {
+					algo.update(c[i].closing)
+					candleTime = ctime
+				}
+				i++
+			}
+			fmt.Println("*", product, "| MACD", algo.current, "| SIGNAL", algo.signal, "*")
 			// start process
-			if m.signal == "buy" {
+			updates := false
+			if algo.signal == "buy" {
 				zero := newCurrency("0.0")
 				if acc["USD"].available.cmp(zero) > 0 {
-					buy(a, "5.0")
-					orders.push(nil)
-					// orders = append(orders, order)
-					// write to orders.txt
+					amt := "0.0"
+					pending, err := buy(a, product, amt)
+					if err == nil {
+						fmt.Println(pending.id)
+						orders.push(pending)
+						updates = true
+					}
 				}
-			} else if m.signal == "sell" {
+			} else if algo.signal == "sell" {
 				t, err := tick(product)
 				if err != nil {
 					logger(err.Error())
 					time.Sleep(time.Second)
 					continue
 				}
-				size := len(o)
-				updates := false
-				for i := 0; i < size; i++ {
+				for i := 0; i < len(o); i++ {
 					order := orders[i]
 					min := profitPrice(order)
 					fmt.Println("*", product, "|", min, ">", t.price, "*")
 					if min.cmp(t.price) > 0 {
-						sell(a, order)
-						orders.delete(i)
-						i--
-						size--
-						updates = true
+						pending, err := sell(a, order)
+						if err == nil {
+							fmt.Println(pending.id)
+							orders.delete(i)
+							i--
+							updates = true
+						}
 					}
 				}
-				if updates {
-					// write to file
+			}
+			if updates {
+				var buffer strings.Builder
+				for i := 0; i < len(orders); i++ {
+					buffer.WriteString(orders[i].id)
+					buffer.WriteByte('\n')
 				}
+				writeList(orderSwapFile, []byte(buffer.String()))
 			}
 			// end process
-			wait = interval - time.Now().Sub(time.Unix(c[len(c)-1].time, 0))
-			if wait < 0 {
+			if regulate {
+				wait = interval - time.Now().Sub(time.Unix(c[len(c)-1].time, 0))
+				if wait < 0 {
+					wait = interval
+				}
+				regulate = false
+			} else {
 				wait = interval
 			}
 		} else {
-			wait = time.Second
+			wait = time.Second * time.Duration(6)
 		}
 		fmt.Println("sleeping", wait)
 		for wait > 0 {
