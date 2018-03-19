@@ -17,10 +17,10 @@ const (
 
 var (
 	interrupt = false
-	product string
-	auth map[string]string
-	algo *macd
-	orders = make(book, 0)
+	product   string
+	auth      map[string]string
+	algo      *macd
+	orders    = make(book, 0)
 )
 
 func main() {
@@ -95,7 +95,7 @@ func initOrders() {
 			fmt.Println(order.executedValue)
 			orders.push(order)
 		}
-	}	
+	}
 }
 
 func initSettings() (string, string, int64, int64, int64) {

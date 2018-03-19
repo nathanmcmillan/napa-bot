@@ -1,11 +1,11 @@
 package atomic
 
 import (
-    "math/big"
-    "sync"   
+	"math/big"
+	"sync"
 )
 
 type List struct {
-    m *sync.Mutex
-    ls []big.Rat
+	m  *sync.Mutex
+	ls []big.Rat
 }

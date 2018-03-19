@@ -88,8 +88,8 @@ func buy(product, usd string) {
 	order, err := trade.PlaceMarketBuy(product, fund)
 	if err == nil {
 		fmt.Println(order)
-	}  else {
-		fmt.Println(err)	
+	} else {
+		fmt.Println(err)
 	}
 }
 

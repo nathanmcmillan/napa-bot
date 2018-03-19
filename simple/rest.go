@@ -4,13 +4,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"io"
 	"io/ioutil"
 	"net/http"
-	"io"
 	"strconv"
-	"time"
-	"sync"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 
 var (
 	limit = &sync.Mutex{}
-	rate = time.Millisecond * time.Duration(500)
+	rate  = time.Millisecond * time.Duration(500)
 )
 
 func request(method, url string, body string) (*http.Client, *http.Request, error) {
