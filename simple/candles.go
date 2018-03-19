@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -41,7 +42,7 @@ func candles(product, start, end, granularity string) ([]*candle, error) {
 	for i := 0; i < len(decode); i++ {
 		values, ok := decode[i].([]interface{})
 		if !ok {
-			return nil, errors.New("not a list")
+			return nil, errors.New(fmt.Sprint(decode))
 		}
 		c := &candle{}
 		floatTime, _ := values[0].(float64)

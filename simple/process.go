@@ -15,7 +15,7 @@ func process() {
 			logger(err.Error())
 			return
 		}
-		amount := "0.0"
+		amount := "10.0"
 		if accounts["USD"].available.moreThan(newCurrency(amount)) {
 			pending, err, status := buy(auth, product, amount)
 			if err == nil && status == 200 {
@@ -48,9 +48,9 @@ func process() {
 					updates = true
 				} else {
 					if err == nil {
-						err = errors.New("EXCHANGE RESPONSE")
+						err = errors.New("exchange response")
 					}
-					logger(err.Error(), "| STATUS CODE", strconv.FormatInt(int64(status), 10))
+					logger(err.Error(), "| status code", strconv.FormatInt(int64(status), 10))
 				}
 			}
 		}

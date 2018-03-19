@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"errors"
 )
 
@@ -22,23 +23,19 @@ func readAccounts(auth map[string]string) (map[string]*account, error) {
 	var decode []interface{}
 	err = json.Unmarshal(body, &decode)
 	if err != nil {
-		var message interface{}
+		var message map[string]interface{}
 		errB := json.Unmarshal(body, &message)
 		if errB != nil {
-			return nil, errors.New(err.Error() + " -> " + errB.Error())
+			return nil, errors.New(err.Error() + " | " + errB.Error())
+		} else {
+			return nil, errors.New(fmt.Sprint(message))
 		}
-		values, ok := message.(map[string]interface{})
-		if !ok {
-			return nil, errors.New(err.Error() + " -> parse error message")
-		}
-		str, _ := values["message"].(string)
-		return nil, errors.New(err.Error() + " -> " + str)
 	}
 	accounts := make(map[string]*account, 0)
 	for i := 0; i < len(decode); i++ {
 		values, ok := decode[i].(map[string]interface{})
 		if !ok {
-			return nil, errors.New("parse error accounts")
+			return nil, errors.New(fmt.Sprint(decode))
 		}
 		a := &account{}
 		a.id, _ = values["id"].(string)

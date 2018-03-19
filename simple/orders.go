@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 )
 
 var (
@@ -9,6 +11,9 @@ var (
 		"BTC-USD": newCurrency("1.0025"),
 		"ETH-USD": newCurrency("1.003"),
 		"LTC-USD": newCurrency("1.003"),
+	}
+	minimum = map[string]float64{
+		"BTC-USD": 0.001,
 	}
 	precision = map[string]int{
 		"BTC-USD": 3,
@@ -79,7 +84,11 @@ func postOrder(auth map[string]string, rawJs string) (*order, error, int) {
 	if err != nil {
 		return nil, err, status
 	}
-	return decodeOrder(decode), nil, status
+	if status == 200 {
+		return decodeOrder(decode), nil, status
+	} else {
+		return nil, errors.New(fmt.Sprint(decode)), status
+	}
 }
 
 func decodeOrder(d map[string]interface{}) *order {

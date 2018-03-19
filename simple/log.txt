@@ -26,3 +26,5 @@
 2018/03/18 22:42:17 [EXCHANGE RESPONSE | STATUS CODE 403]
 2018/03/18 22:43:18 [{"type":"market", "side":"buy", "product_id":"BTC-USD", "funds":"0.0"}]
 2018/03/18 22:43:19 [EXCHANGE RESPONSE | STATUS CODE 403]
+2018/03/18 23:04:49 [{"type":"market", "side":"buy", "product_id":"BTC-USD", "funds":"0.0"}]
+2018/03/18 23:04:50 [map[message:Forbidden] | status code 403]
