@@ -15,7 +15,7 @@ type ticker struct {
 }
 
 func tick(product string) (*ticker, error) {
-	body, err, _ := publicRequest(get, "/products/"+product+"/ticker")
+	body, _, err := publicRequest(get, "/products/"+product+"/ticker")
 	if err != nil {
 		return nil, err
 	}

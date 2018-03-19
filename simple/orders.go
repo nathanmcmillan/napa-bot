@@ -57,7 +57,7 @@ func profitPrice(o *order) *currency {
 }
 
 func readOrder(auth map[string]string, orderID string) (*order, error) {
-	body, err, _ := privateRequest(auth, get, "/orders/"+orderID, "")
+	body, _, err := privateRequest(auth, get, "/orders/"+orderID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func readOrder(auth map[string]string, orderID string) (*order, error) {
 }
 
 func postOrder(auth map[string]string, rawJs string) (*order, error, int) {
-	body, err, status := privateRequest(auth, post, "/orders", rawJs)
+	body, status, err := privateRequest(auth, post, "/orders", rawJs)
 	if err != nil {
 		return nil, err, status
 	}

@@ -24,9 +24,9 @@ func process() {
 				updates = true
 			} else {
 				if err == nil {
-					err = errors.New("EXCHANGE RESPONSE")
+					err = errors.New("exchange response")
 				}
-				logger(err.Error(), "| STATUS CODE", strconv.FormatInt(int64(status), 10))
+				logger(err.Error(), "| status code", strconv.FormatInt(int64(status), 10))
 			}
 		}
 	} else if algo.signal == "sell" {

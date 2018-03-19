@@ -15,7 +15,7 @@ type account struct {
 }
 
 func readAccounts(auth map[string]string) (map[string]*account, error) {
-	body, err, _ := privateRequest(auth, get, "/accounts", "")
+	body, _, err := privateRequest(auth, get, "/accounts", "")
 	if err != nil {
 		return nil, err
 	}
