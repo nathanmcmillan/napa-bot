@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"errors"
 	"time"
 )
 
@@ -86,15 +87,16 @@ func initOrders() {
 	o := readList(orderFile)
 	for i := 0; i < len(o); i++ {
 		fmt.Println("fetching order:", o[i])
-		order, err := readOrder(auth, o[i])
+		order, status, err := readOrder(auth, o[i])
+		if order == nil && err == nil {
+			err = errors.New("order is null | status code " + strconv.FormatInt(int64(status), 10))
+		}
 		if err != nil {
 			logger(err.Error())
 			panic(err)
 		}
-		if order != nil {
-			fmt.Println(order.executedValue)
-			orders.push(order)
-		}
+		fmt.Println(order)
+		orders.push(order)
 	}
 }
 

@@ -37,6 +37,7 @@ func readMap(path string) map[string]string {
 }
 
 func writeList(path string, list []byte) {
+	fmt.Println("not working...")
 	for {
 		err := ioutil.WriteFile(path, list, 0644)
 		if err == nil {

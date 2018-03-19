@@ -17,7 +17,7 @@ func process() {
 		}
 		amount := "10.0"
 		if accounts["USD"].available.moreThan(newCurrency(amount)) {
-			pending, err, status := buy(auth, product, amount)
+			pending, status, err := buy(auth, product, amount)
 			if err == nil && status == 200 {
 				fmt.Println(pending.id)
 				orders.push(pending)
@@ -40,7 +40,7 @@ func process() {
 			min := profitPrice(order)
 			fmt.Println("*", product, "|", min, ">", t.price, "*")
 			if min.moreThan(t.price) {
-				pending, err, status := sell(auth, order)
+				pending, status, err := sell(auth, order)
 				if err == nil && status == 200 {
 					fmt.Println(pending.id)
 					orders.delete(i)
@@ -65,7 +65,7 @@ func process() {
 	}
 }
 
-func buy(a map[string]string, product, funds string) (*order, error, int) {
+func buy(a map[string]string, product, funds string) (*order, int, error) {
 	rawJs := &strings.Builder{}
 	beginJs(rawJs)
 	firstJs(rawJs, "type", "market")
@@ -78,7 +78,7 @@ func buy(a map[string]string, product, funds string) (*order, error, int) {
 	return postOrder(a, str)
 }
 
-func sell(a map[string]string, o *order) (*order, error, int) {
+func sell(a map[string]string, o *order) (*order, int, error) {
 	rawJs := &strings.Builder{}
 	beginJs(rawJs)
 	firstJs(rawJs, "type", "market")
