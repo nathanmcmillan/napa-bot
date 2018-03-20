@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func hashmap(src []byte) map[string]string {
+func decodeHashmap(src []byte) map[string]string {
 	size := len(src)
 	data := make(map[string]string)
 	isKey := true
@@ -34,7 +34,7 @@ func hashmap(src []byte) map[string]string {
 	return data
 }
 
-func list(src []byte) []string {
+func decodeList(src []byte) []string {
 	size := len(src)
 	data := make([]string, 0)
 	var buffer strings.Builder

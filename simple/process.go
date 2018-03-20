@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"errors"
 	"fmt"
 	"strconv"
@@ -15,12 +16,12 @@ func process() {
 			logger(err.Error())
 			return
 		}
-		amount := "10.0"
+		amount := "0.0" // amount := "10.0"
 		if accounts["USD"].available.moreThan(newCurrency(amount)) {
 			pending, status, err := buy(auth, product, amount)
 			if err == nil && status == 200 {
-				fmt.Println(pending.id)
-				orders.push(pending)
+				logger("buy", pending.id)
+				orders.PushBack(pending)
 				updates = true
 			} else {
 				if err == nil {
@@ -35,16 +36,17 @@ func process() {
 			logger(err.Error())
 			return
 		}
-		for i := 0; i < len(orders); i++ {
-			order := orders[i]
+		var next *list.Element
+		for e := orders.Front(); e != nil; e = next {
+			next = e.Next()
+			order := e.Value.(*order)
 			min := profitPrice(order)
 			fmt.Println("*", product, "|", min, ">", t.price, "*")
 			if min.moreThan(t.price) {
 				pending, status, err := sell(auth, order)
 				if err == nil && status == 200 {
-					fmt.Println(pending.id)
-					orders.delete(i)
-					i--
+					fmt.Println("sell", order, pending)
+					orders.Remove(e)
 					updates = true
 				} else {
 					if err == nil {
@@ -57,11 +59,15 @@ func process() {
 	}
 	if updates {
 		var buffer strings.Builder
-		for i := 0; i < len(orders); i++ {
-			buffer.WriteString(orders[i].id)
-			buffer.WriteByte('\n')
+		for e := orders.Front(); e != nil; e = e.Next() {
+			order := e.Value.(*order)
+			buffer.WriteString(order.id)
+			buffer.WriteString("\n")
 		}
-		writeList(orderSwapFile, []byte(buffer.String()))
+		writeBytes(orderUpdateFile, []byte(buffer.String()))
+		copyFile(orderFile, orderBackupFile)
+		copyFile(orderUpdateFile, orderUpdateBackupFile)
+		renameFile(orderUpdateFile, orderFile)
 	}
 }
 

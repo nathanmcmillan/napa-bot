@@ -20,25 +20,6 @@ var (
 	}
 )
 
-type book []*order
-
-func (b *book) push(o *order) {
-	size := len(*b)
-	for i := 0; i < size; i++ {
-		if (*b)[i] == nil {
-			(*b)[i] = o
-			return
-		}
-	}
-	*b = append(*b, o)
-}
-
-func (b *book) delete(i int) {
-	size := len(*b)
-	(*b)[i] = (*b)[size-1]
-	*b = (*b)[:size-1]
-}
-
 type order struct {
 	id            string
 	price         *currency
@@ -82,9 +63,8 @@ func processOrder(body []byte, status int, err error) (*order, int, error) {
 	}
 	if status == 200 {
 		return decodeOrder(decode), status, nil
-	} else {
-		return nil, status, errors.New(fmt.Sprint(decode))
 	}
+	return nil, status, errors.New(fmt.Sprint(decode))
 }
 
 func decodeOrder(d map[string]interface{}) *order {

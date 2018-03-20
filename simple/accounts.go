@@ -27,9 +27,8 @@ func readAccounts(auth map[string]string) (map[string]*account, error) {
 		errB := json.Unmarshal(body, &message)
 		if errB != nil {
 			return nil, errors.New(err.Error() + " | " + errB.Error())
-		} else {
-			return nil, errors.New(fmt.Sprint(message))
 		}
+		return nil, errors.New(fmt.Sprint(message))
 	}
 	accounts := make(map[string]*account, 0)
 	for i := 0; i < len(decode); i++ {
