@@ -16,12 +16,15 @@ func process() {
 			logger(err.Error())
 			return
 		}
-		amount := "0.0" // amount := "10.0"
-		if accounts["USD"].available.moreThan(newCurrency(amount)) {
-			pending, status, err := buy(auth, product, amount)
+		amount := newCurrency("0.0") // amount := "10.0"
+		if accounts["USD"].available.moreThan(amount) {
+			pending, status, err := buy(auth, product, amount.str(2))
 			if err == nil && status == 200 {
 				logger("buy", pending.id)
-				orders.PushBack(pending)
+				hollow := &order{}
+				hollow.id = pending.id
+				hollow.settled = false
+				orders.PushBack(hollow)
 				updates = true
 			} else {
 				if err == nil {
@@ -31,7 +34,7 @@ func process() {
 			}
 		}
 	} else if algo.signal == "sell" {
-		t, err := tick(product)
+		ticker, err := tick(product)
 		if err != nil {
 			logger(err.Error())
 			return
@@ -40,9 +43,22 @@ func process() {
 		for e := orders.Front(); e != nil; e = next {
 			next = e.Next()
 			order := e.Value.(*order)
-			min := profitPrice(order)
-			fmt.Println("*", product, "|", min, ">", t.price, "*")
-			if min.moreThan(t.price) {
+			if !order.settled {
+				orderUpdate, status, err := readOrder(auth, order.id)
+				if orderUpdate == nil || err != nil {
+					logger("could not update order | status code " + fmt.Sprint(status) + " | " + fmt.Sprint(order))
+					continue
+				}
+				order = orderUpdate
+				e.Value = orderUpdate
+			}
+			min, err := profitPrice(order)
+			if err != nil {
+				logger(err.Error())
+				continue
+			}
+			fmt.Println("*", product, "|", ticker.price.str(10), ">", min.str(10), "? *")
+			if ticker.price.moreThan(min) {
 				pending, status, err := sell(auth, order)
 				if err == nil && status == 200 {
 					fmt.Println("sell", order, pending)
@@ -64,14 +80,32 @@ func process() {
 			buffer.WriteString(order.id)
 			buffer.WriteString("\n")
 		}
-		writeBytes(orderUpdateFile, []byte(buffer.String()))
-		copyFile(orderFile, orderBackupFile)
-		copyFile(orderUpdateFile, orderUpdateBackupFile)
-		renameFile(orderUpdateFile, orderFile)
+		err := updateOrderFile(buffer.String())
+		if err != nil {
+			logger(err.Error())
+			panic(err)
+		}
+		
 	}
 }
+				   
+func updateOrderFile(contents string) error {
+	err := writeBytes(orderUpdateFile, []byte(contents))
+	if err != nil {
+		return err
+	}
+	err = copyFile(orderFile, orderBackupFile)
+	if err != nil {
+		return err
+	}
+	err = copyFile(orderUpdateFile, orderUpdateBackupFile)
+	if err != nil {
+		return err
+	}
+	return renameFile(orderUpdateFile, orderFile)
+}
 
-func buy(a map[string]string, product, funds string) (*order, int, error) {
+func buy(a map[string]string, product, funds string) (*orderResponse, int, error) {
 	rawJs := &strings.Builder{}
 	beginJs(rawJs)
 	firstJs(rawJs, "type", "market")
@@ -84,13 +118,13 @@ func buy(a map[string]string, product, funds string) (*order, int, error) {
 	return postOrder(a, str)
 }
 
-func sell(a map[string]string, o *order) (*order, int, error) {
+func sell(a map[string]string, o *order) (*orderResponse, int, error) {
 	rawJs := &strings.Builder{}
 	beginJs(rawJs)
 	firstJs(rawJs, "type", "market")
 	pushJs(rawJs, "side", "sell")
 	pushJs(rawJs, "product_id", o.product)
-	pushJs(rawJs, "size", o.size.str(precision[o.product]))
+	pushJs(rawJs, "size", o.filledSizeS)
 	endJs(rawJs)
 	str := rawJs.String()
 	logger(str)

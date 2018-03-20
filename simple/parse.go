@@ -40,9 +40,6 @@ func decodeList(src []byte) []string {
 	var buffer strings.Builder
 	for i := 0; i < size; i++ {
 		c := src[i]
-		if c == ' ' || c == '\t' {
-			continue
-		}
 		if c == '\n' || c == '\r' {
 			if buffer.Len() > 0 {
 				data = append(data, buffer.String())

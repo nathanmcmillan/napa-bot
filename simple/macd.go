@@ -27,4 +27,5 @@ func (m *macd) update(closing float64) {
 	} else {
 		m.signal = "wait"
 	}
+	m.signal = "sell" // todo
 }

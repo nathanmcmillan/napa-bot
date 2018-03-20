@@ -62,12 +62,17 @@ func TestFileIO(t *testing.T) {
 	tempSwapB.Close()
 	defer os.Remove(tempSwapB.Name())
 
-	writeBytes(tempA.Name(), []byte("contents of temp a\n"))
-	writeBytes(tempB.Name(), []byte("temp b contents\n"))
-	copyFile(tempA.Name(), tempSwapA.Name())
-	copyFile(tempB.Name(), tempSwapB.Name())
-	renameFile(tempB.Name(), tempA.Name())
-
+	err = writeBytes(tempA.Name(), []byte("contents of temp a\n"))
+	ok(err)
+	err = writeBytes(tempB.Name(), []byte("temp b contents\n"))
+	ok(err)
+	err = copyFile(tempA.Name(), tempSwapA.Name())
+	ok(err)
+	err = copyFile(tempB.Name(), tempSwapB.Name())
+	ok(err)
+	err = renameFile(tempB.Name(), tempA.Name())
+	ok(err)
+	
 	var read []string
 
 	read = readList(tempA.Name())
