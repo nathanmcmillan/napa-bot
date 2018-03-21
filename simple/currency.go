@@ -8,6 +8,7 @@ var (
 	zero = newCurrency("0.0")
 	one = newCurrency("1.0")
 	two = newCurrency("2.0")
+	twenty = newCurrency("20.0")
 )
 
 type currency struct {

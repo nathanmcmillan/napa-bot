@@ -16,10 +16,28 @@ func process() {
 			logger(err.Error())
 			return
 		}
-		amount := newCurrency("10.0")
-		if accounts["USD"].available.moreThan(amount) {
+		
+		// TODO: finish funds concept
+		//	     buy with half of available funds and update file
+		//       sell and update file with 85% of profits (keep enough of profits to cover taxes)
+		
+		// TODO: prevent multiple buys at similar prices or times
+/*
+for e := orders.Front(); e != nil; e = e.Next() {
+  // need a special function for waiting on order to be settled so
+  // accurate values can be used
+}
+*/
+		
+		fund := funds[product]
+		availableUsd := accounts["USD"].available
+		
+		if fund.moreThan(availableUsd) && fund.moreThan(twenty) 
+			amount := fund.div(two)
 			pending, status, err := buy(auth, product, amount.str(2))
 			if err == nil && status == 200 {
+				// funds[product] = need to get actual values from server
+				// update funds file
 				logger("buy", pending.id)
 				hollow := &order{}
 				hollow.id = pending.id
@@ -61,6 +79,8 @@ func process() {
 			if ticker.price.moreThan(min) {
 				pending, status, err := sell(auth, order)
 				if err == nil && status == 200 {
+					// funds[product] = need to get actual values from server
+					// update funds file
 					fmt.Println("sell", order, pending)
 					orders.Remove(e)
 					updates = true
@@ -85,7 +105,6 @@ func process() {
 			logger(err.Error())
 			panic(err)
 		}
-		
 	}
 }
 				   

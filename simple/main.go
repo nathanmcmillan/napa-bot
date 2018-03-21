@@ -17,6 +17,7 @@ const (
 	orderBackupFile       = "orders_backup.txt"
 	orderUpdateFile       = "orders_update.txt"
 	orderUpdateBackupFile = "orders_update_backup.txt"
+	fundsFile = "funds.txt"
 )
 
 var (
@@ -25,6 +26,7 @@ var (
 	auth      map[string]string
 	algo      *macd
 	orders    = list.New()
+	funds     = make(map[string]*currency)
 )
 
 func main() {
@@ -33,6 +35,7 @@ func main() {
 	logging()
 	auth = readMap("../../private.txt")
 	initOrders()
+	initFunds()
 	p, granularity, granularityInt, emaShort, emaLong := initSettings()
 	product = p
 	interval := time.Second * time.Duration(granularityInt)
@@ -40,13 +43,14 @@ func main() {
 	sleeping := time.Second * time.Duration(2)
 	candleTime := int64(0)
 	regulate := true
+	updateText := ""
 	for {
 		if interrupt {
 			break
 		}
 		end := time.Now().UTC()
 		start := end.Add(offset)
-		fmt.Println("*", product, "|", start.Format(time.Stamp), "|", end.Format(time.Stamp), "*")
+		printing := fmt.Sprint("* ", product, " | ", start.Format(time.Stamp), " -> ", end.Format(time.Stamp))
 		candles, err := candles(product, start.Format(time.RFC3339), end.Format(time.RFC3339), granularity)
 		if err != nil {
 			logger(err.Error())
@@ -54,34 +58,36 @@ func main() {
 			continue
 		}
 		size := len(candles)
-		var wait time.Duration
+		var waitTil time.Time
 		if size > 0 && candles[size-1].time > candleTime {
 			algo = newMacd(emaShort, emaLong, candles[0].closing)
 			candleTime = candles[size-1].time
 			for i := 1; i < size; i++ {
 				algo.update(candles[i].closing)
 			}
-			fmt.Println("*", product, "| MACD", algo.current, "| SIGNAL", algo.signal, "*")
+			updateText = fmt.Sprint(" | MACD ", strconv.FormatFloat(algo.current, 'f', 3, 64), " | SIGNAL ", algo.signal)
 			process()
 			if regulate {
-				wait = interval - time.Now().Sub(time.Unix(candles[size-1].time, 0))
+				wait := interval - time.Now().Sub(time.Unix(candles[size-1].time, 0))
 				if wait < 0 {
-					wait = interval
+					waitTil = time.Now().Add(interval)
+				} else {
+					waitTil = time.Now().Add(wait)	
 				}
 				regulate = false
 			} else {
-				wait = interval
+				waitTil = time.Now().Add(interval)
 			}
 		} else {
-			wait = time.Second * time.Duration(6)
+			waitTil = time.Now().Add(time.Second * time.Duration(6))
 		}
-		fmt.Println("* sleeping", wait, "*")
-		for wait > 0 {
+		printing += updateText + fmt.Sprint(" | SLEEPING -> ", waitTil.Format(time.Stamp), " *")
+		fmt.Println(printing)
+		for time.Now().Before(waitTil) {
 			if interrupt {
 				break
 			}
 			<-time.NewTimer(sleeping).C
-			wait -= sleeping
 		}
 	}
 }
@@ -122,6 +128,13 @@ func initSettings() (string, string, int64, int64, int64) {
 		panic(err)
 	}
 	return s["product"], granularity, granularityInt, emaShort, emaLong
+}
+
+func initFunds() {
+	f := readMap(fundsFile)
+	for key, value := range f {
+		funds[key] = newCurrency(value)
+	}
 }
 
 func signals() {
