@@ -16,7 +16,7 @@ func process() {
 			logger(err.Error())
 			return
 		}
-		amount := newCurrency("0.0") // amount := "10.0"
+		amount := newCurrency("10.0")
 		if accounts["USD"].available.moreThan(amount) {
 			pending, status, err := buy(auth, product, amount.str(2))
 			if err == nil && status == 200 {
