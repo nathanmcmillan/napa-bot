@@ -17,7 +17,10 @@ const (
 	orderBackupFile       = "orders_backup.txt"
 	orderUpdateFile       = "orders_update.txt"
 	orderUpdateBackupFile = "orders_update_backup.txt"
-	fundsFile = "funds.txt"
+	fundsFile             = "funds.txt"
+	fundsBackupFile       = "funds_backup.txt"
+	fundsUpdateFile       = "funds_update.txt"
+	fundsUpdateBackupFile = "funds_update_backup.txt"
 )
 
 var (
@@ -72,7 +75,7 @@ func main() {
 				if wait < 0 {
 					waitTil = time.Now().Add(interval)
 				} else {
-					waitTil = time.Now().Add(wait)	
+					waitTil = time.Now().Add(wait)
 				}
 				regulate = false
 			} else {

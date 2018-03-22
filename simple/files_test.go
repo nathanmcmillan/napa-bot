@@ -72,7 +72,7 @@ func TestFileIO(t *testing.T) {
 	ok(err)
 	err = renameFile(tempB.Name(), tempA.Name())
 	ok(err)
-	
+
 	var read []string
 
 	read = readList(tempA.Name())

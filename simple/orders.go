@@ -26,35 +26,39 @@ type orderResponse struct {
 }
 
 type order struct {
-	id            string
-	size          *currency
-	product       string
-	side          string
-	stp           string
-	funds *currency
+	id             string
+	size           *currency
+	product        string
+	side           string
+	stp            string
+	funds          *currency
 	specifiedFunds *currency
-	typ           string
-	postOnly      bool
-	createdAt     string
-	doneAt	 	  string
-	doneReason    string
-	fillFees      *currency
-	filledSize    *currency
-	filledSizeS   string
-	executedValue *currency
-	status        string
-	settled       bool
+	typ            string
+	postOnly       bool
+	createdAt      string
+	doneAt         string
+	doneReason     string
+	fillFees       *currency
+	filledSize     *currency
+	filledSizeS    string
+	executedValue  *currency
+	status         string
+	settled        bool
+}
+
+func priceOfCoin(o *order) (*currency) {
+	// executed value / filled_size = price of coin
+	executedValue := o.executedValue
+	filledSize := o.filledSize
+	return executedValue.div(filledSize)
 }
 
 func profitPrice(o *order) (*currency, error) {
-	// executed value / filled_size = price of coin
 	// specified_funds / funds = required margin
 	funds := o.funds
 	specifiedFunds := o.specifiedFunds
-	executedValue := o.executedValue
-	filledSize := o.filledSize
 	margin := specifiedFunds.div(funds).minus(one).mul(two).plus(one)
-	return executedValue.div(filledSize).mul(margin), nil
+	return priceOfCoin(o).mul(margin), nil
 }
 
 func readOrder(auth map[string]string, orderID string) (*order, int, error) {

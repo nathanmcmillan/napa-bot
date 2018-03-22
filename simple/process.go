@@ -6,43 +6,54 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	percentRange = 0.05	
 )
 
 func process() {
+	if algo.signal == "wait" {
+		return
+	}
 	updates := false
+	ticker, err := tick(product)
+	if err != nil {
+		logger(err.Error())
+		return
+	}
 	if algo.signal == "buy" {
+		tickerFloat := ticker.price.float()
+		for e := orders.Front(); e != nil; e = e.Next() {
+			existingOrder := e.Value.(*order)
+			price := priceOfCoin(existingOrder).float()
+			if percentChange(tickerFloat, price) < percentRange {
+				fmt.Println("* existing order", existingOrder.id, "bought at $", price, "withing", percentRange, "of last ticker $", tickerFloat, "*")
+				return
+			}
+		}
 		accounts, err := readAccounts(auth)
 		if err != nil {
 			logger(err.Error())
 			return
 		}
-		
-		// TODO: finish funds concept
-		//	     buy with half of available funds and update file
-		//       sell and update file with 85% of profits (keep enough of profits to cover taxes)
-		
-		// TODO: prevent multiple buys at similar prices or times
-/*
-for e := orders.Front(); e != nil; e = e.Next() {
-  // need a special function for waiting on order to be settled so
-  // accurate values can be used
-}
-*/
-		
 		fund := funds[product]
 		availableUsd := accounts["USD"].available
-		
-		if fund.moreThan(availableUsd) && fund.moreThan(twenty) 
+		if fund.moreThan(availableUsd) && fund.moreThan(twenty) {
 			amount := fund.div(two)
 			pending, status, err := buy(auth, product, amount.str(2))
 			if err == nil && status == 200 {
-				// funds[product] = need to get actual values from server
-				// update funds file
 				logger("buy", pending.id)
-				hollow := &order{}
-				hollow.id = pending.id
-				hollow.settled = false
-				orders.PushBack(hollow)
+				settledOrder := waitTilSettled(pending.id)
+				funds[product] = funds[product].minus(settledOrder.executedValue).minus(settledOrder.fillFees)
+				err = updateFundsFile()
+				logger(amount.str(2), "->", fmt.Sprint(settledOrder), "| funds $", funds[product].str(2))
+				if err != nil {
+					logger(err.Error())
+					panic(err)
+				}
+				orders.PushBack(settledOrder)
 				updates = true
 			} else {
 				if err == nil {
@@ -52,36 +63,29 @@ for e := orders.Front(); e != nil; e = e.Next() {
 			}
 		}
 	} else if algo.signal == "sell" {
-		ticker, err := tick(product)
-		if err != nil {
-			logger(err.Error())
-			return
-		}
 		var next *list.Element
 		for e := orders.Front(); e != nil; e = next {
 			next = e.Next()
-			order := e.Value.(*order)
-			if !order.settled {
-				orderUpdate, status, err := readOrder(auth, order.id)
-				if orderUpdate == nil || err != nil {
-					logger("could not update order | status code " + fmt.Sprint(status) + " | " + fmt.Sprint(order))
-					continue
-				}
-				order = orderUpdate
-				e.Value = orderUpdate
-			}
-			min, err := profitPrice(order)
+			orderToSell := e.Value.(*order)
+			min, err := profitPrice(orderToSell)
 			if err != nil {
 				logger(err.Error())
 				continue
 			}
 			fmt.Println("*", product, "|", ticker.price.str(10), ">", min.str(10), "? *")
 			if ticker.price.moreThan(min) {
-				pending, status, err := sell(auth, order)
+				pending, status, err := sell(auth, orderToSell)
 				if err == nil && status == 200 {
-					// funds[product] = need to get actual values from server
-					// update funds file
-					fmt.Println("sell", order, pending)
+					logger("sell", pending.id)
+					settledOrder := waitTilSettled(pending.id)
+					profits := settledOrder.executedValue.minus(orderToSell.executedValue).minus(settledOrder.fillFees)
+					funds[product] = funds[product].plus(profits.mul(percent85))
+					err = updateFundsFile()
+					logger(fmt.Sprint(orderToSell), "->", fmt.Sprint(settledOrder), "| profit $", profits.str(2), "| funds $", funds[product].str(2))
+					if err != nil {
+						logger(err.Error())
+						panic(err)
+					}
 					orders.Remove(e)
 					updates = true
 				} else {
@@ -107,7 +111,7 @@ for e := orders.Front(); e != nil; e = e.Next() {
 		}
 	}
 }
-				   
+
 func updateOrderFile(contents string) error {
 	err := writeBytes(orderUpdateFile, []byte(contents))
 	if err != nil {
@@ -122,6 +126,43 @@ func updateOrderFile(contents string) error {
 		return err
 	}
 	return renameFile(orderUpdateFile, orderFile)
+}
+
+func updateFundsFile() error {
+	var buffer strings.Builder
+	for key, value := range funds {
+		buffer.WriteString(key)
+		buffer.WriteString(" ")
+		buffer.WriteString(value.num.String())
+		buffer.WriteString("\n")
+	}
+	err := writeBytes(fundsUpdateFile, []byte(buffer.String()))
+	if err != nil {
+		return err
+	}
+	err = copyFile(fundsFile, fundsBackupFile)
+	if err != nil {
+		return err
+	}
+	err = copyFile(fundsUpdateFile, fundsUpdateBackupFile)
+	if err != nil {
+		return err
+	}
+	return renameFile(fundsUpdateFile, fundsFile)
+}
+
+func waitTilSettled(orderID string) (*order) {
+	for {
+		time.Sleep(time.Second)
+		orderUpdate, status, err := readOrder(auth, orderID)
+		if orderUpdate == nil || err != nil {
+			logger("could not update order " + orderID + " | status code " + fmt.Sprint(status))
+			continue
+		}
+		if orderUpdate.settled {
+			return orderUpdate	
+		}
+	}
 }
 
 func buy(a map[string]string, product, funds string) (*orderResponse, int, error) {

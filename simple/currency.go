@@ -5,10 +5,11 @@ import (
 )
 
 var (
-	zero = newCurrency("0.0")
-	one = newCurrency("1.0")
-	two = newCurrency("2.0")
+	zero   = newCurrency("0.0")
+	one    = newCurrency("1.0")
+	two    = newCurrency("2.0")
 	twenty = newCurrency("20.0")
+	percent85 = newCurrency("0.85")
 )
 
 type currency struct {
@@ -57,4 +58,17 @@ func (c *currency) moreThan(o *currency) bool {
 
 func (c *currency) str(precision int) string {
 	return c.num.FloatString(precision)
+}
+
+func (c *currency) float() float64 {
+	f, _ := c.num.Float64()
+	return f
+}
+
+func percentChange(first, second float64) float64 {	
+	abs := first - second
+	if abs < 0 {
+		abs = -abs	
+	}
+	return abs / second
 }

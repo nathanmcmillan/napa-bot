@@ -81,7 +81,7 @@ func copyFile(src, dest string) error {
 		logger("failed to copy file", err.Error())
 		return err
 	}
-	
+
 	return nil
 }
 
