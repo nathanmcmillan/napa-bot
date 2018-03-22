@@ -48,7 +48,7 @@ func process() {
 				settledOrder := waitTilSettled(pending.id)
 				funds[product] = funds[product].minus(settledOrder.executedValue).minus(settledOrder.fillFees)
 				err = updateFundsFile()
-				logger(amount.str(2), "->", fmt.Sprint(settledOrder), "| funds $", funds[product].str(2))
+				logger(amount.str(2), "->", settledOrder.id, "| funds $", funds[product].str(2))
 				if err != nil {
 					logger(err.Error())
 					panic(err)
@@ -81,7 +81,7 @@ func process() {
 					profits := settledOrder.executedValue.minus(orderToSell.executedValue).minus(settledOrder.fillFees)
 					funds[product] = funds[product].plus(profits.mul(percent85))
 					err = updateFundsFile()
-					logger(fmt.Sprint(orderToSell), "->", fmt.Sprint(settledOrder), "| profit $", profits.str(2), "| funds $", funds[product].str(2))
+					logger(orderToSell.id, "->", settledOrder.id, "| profit $", profits.str(2), "| funds $", funds[product].str(2))
 					if err != nil {
 						logger(err.Error())
 						panic(err)
