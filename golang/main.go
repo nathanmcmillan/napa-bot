@@ -33,7 +33,7 @@ var (
 )
 
 func main() {
-	fmt.Println("simple napa")
+	fmt.Println("napa bot")
 	signals()
 	logging()
 	auth = readMap("../../private.txt")
