@@ -32,7 +32,7 @@ func (trader *Trade) buy(product string) {
 		return
 	}
 	if trader.Accounts[product].Funds > usd.Available {
-		msg := fmt.Sprintf("account funds greater than available USD %s > %s", trader.Accounts[product].Funds, usd.Available)
+		msg := fmt.Sprint("account funds greater than available USD ", trader.Accounts[product].Funds, " > ", usd.Available)
 		log.Println(msg)
 		fmt.Println(msg)
 		return
@@ -62,7 +62,7 @@ func (trader *Trade) buy(product string) {
 		}
 		if exchangeOrderUpdate.Settled {
 			datastore.ArchiveOrder(trader.Datastore, exchangeOrder.ID)
-			msg := fmt.Sprintf("buy %s", exchangeOrderUpdate)
+			msg := fmt.Sprint("buy ", exchangeOrderUpdate)
 			log.Println(msg)
 			fmt.Println(msg)
 			break
@@ -114,6 +114,7 @@ func (trader *Trade) sell(product string, order *gdax.Order) {
 	}
 }
 
+// PlaceMarketBuy places buy order given usd
 func (trader *Trade) PlaceMarketBuy(product string, usd float64) (*gdax.Order, error) {
 	rawJs := &bytes.Buffer{}
 	parse.Begin(rawJs)
@@ -127,6 +128,7 @@ func (trader *Trade) PlaceMarketBuy(product string, usd float64) (*gdax.Order, e
 	return trader.Rest.PlaceOrder(str)
 }
 
+// PlaceMarketSell sells coin given size
 func (trader *Trade) PlaceMarketSell(product string, size float64) (*gdax.Order, error) {
 	rawJs := &bytes.Buffer{}
 	parse.Begin(rawJs)

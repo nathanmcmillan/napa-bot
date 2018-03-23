@@ -13,14 +13,18 @@ import (
 )
 
 const (
-	orderFile             = "orders.txt"
-	orderBackupFile       = "orders_backup.txt"
-	orderUpdateFile       = "orders_update.txt"
-	orderUpdateBackupFile = "orders_update_backup.txt"
-	fundsFile             = "funds.txt"
-	fundsBackupFile       = "funds_backup.txt"
-	fundsUpdateFile       = "funds_update.txt"
-	fundsUpdateBackupFile = "funds_update_backup.txt"
+	slash                 = string(os.PathSeparator)
+	orderFile             = "." + slash + "orders.txt"
+	orderBackupFile       = "." + slash + "orders_backup.txt"
+	orderUpdateFile       = "." + slash + "orders_update.txt"
+	orderUpdateBackupFile = "." + slash + "orders_update_backup.txt"
+	fundsFile             = "." + slash + "funds.txt"
+	fundsBackupFile       = "." + slash + "funds_backup.txt"
+	fundsUpdateFile       = "." + slash + "funds_update.txt"
+	fundsUpdateBackupFile = "." + slash + "funds_update_backup.txt"
+	settingsFile          = "." + slash + "settings.txt"
+	logFile               = "." + slash + "log.txt"
+	privateFile           = ".." + slash + ".." + slash + "private.txt"
 )
 
 var (
@@ -36,7 +40,7 @@ func main() {
 	fmt.Println("napa bot")
 	signals()
 	logging()
-	auth = readMap("../../private.txt")
+	auth = readMap(privateFile)
 	initOrders()
 	initFunds()
 	p, granularity, granularityInt, emaShort, emaLong := initSettings()
@@ -113,7 +117,7 @@ func initOrders() {
 }
 
 func initSettings() (string, string, int64, int64, int64) {
-	s := readMap("settings.txt")
+	s := readMap(settingsFile)
 	granularity := s["granularity"]
 	granularityInt, err := strconv.ParseInt(granularity, 10, 64)
 	if err != nil {
@@ -151,10 +155,9 @@ func signals() {
 }
 
 func logging() {
-	path := "log.txt"
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		logger("failed to open log file:", path)
+		logger("failed to open log file:", logFile)
 		os.Exit(0)
 	}
 	log.SetFlags(log.Ldate | log.Ltime)
