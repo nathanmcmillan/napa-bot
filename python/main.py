@@ -8,7 +8,10 @@ import hashlib
 import time
 import base64
 import json
+from ema import MovingAverage
+from macd import ConvergeDiverge
 from datetime import datetime
+from datetime import timedelta
 
 SITE = 'api.gdax.com'
 run = True
@@ -32,7 +35,7 @@ def read_list(path):
 
 
 def interrupts(signal, frame):
-    print('signal interrupt')
+    print(' signal interrupt')
     global run
     run = False
 
@@ -55,6 +58,7 @@ def request(method, site, path, body):
     response = con.getresponse()
     print(response.read(), response.status, response.reason)
     con.close()
+    time.sleep(0.5)
 
 
 def private_request(auth, method, site, path, body):
@@ -83,10 +87,7 @@ def private_request(auth, method, site, path, body):
     response = con.getresponse()
     print(response.read(), response.status, response.reason)
     con.close()
-
-
-def gdax_get_time():
-    request('GET', SITE, '/time', '')
+    time.sleep(0.5)
 
 
 def gdax_get_order(auth, id):
@@ -105,19 +106,34 @@ signal.signal(signal.SIGTERM, interrupts)
 auth = read_map('../../private.txt')
 funds = read_map('./funds.txt')
 settings = read_map('./settings.txt')
-orders = read_list('./orders.txt')
+order_ids = read_list('./orders.txt')
 
-print(funds)
-print(settings)
-print(orders)
+print('funds', funds)
+print('settings', settings)
+print('orders', order_ids)
 
 # logging.basicConfig(filename='./log.txt', level=logging.DEBUG, format='%(asctime)s : %(message)s', datefmt='%Y-%m-%d %I:%M:%S %p')
 # info('hello python log')
 
-gdax_get_time()
-gdax_get_order(auth, '96a93c65-f207-41a3-95f2-a23b083a1be1')
-gdax_get_candles('BTC-USD', datetime.utcnow(), datetime.utcnow(), settings['granularity'])
+ema_short = int(settings['ema-short'])
+ema_long = int(settings['ema-long'])
+time_interval = int(settings['granularity'])
+time_offset = ema_long * time_interval
 
-# while run:
-# print('testing...')
-# time.sleep(1)
+for id in order_ids:
+    gdax_get_order(auth, id)
+
+ema = MovingAverage(ema_short, 5)
+ema.update(7)
+print(ema.current)
+
+macd = ConvergeDiverge(12, 26, 10)
+macd.update(45)
+print(macd.current, macd.signal)
+
+#while run:
+#    end = datetime.utcnow()
+#    start = end - timedelta(seconds=time_offset)# time.sleep(1)
+#    gdax_get_candles('BTC-USD', start.isoformat(), end.isoformat(), settings['granularity'])
+#    time.sleep(time_interval)
+#print('close')
