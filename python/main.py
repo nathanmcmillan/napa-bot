@@ -4,8 +4,11 @@ import signal
 import time
 import json
 import gdax
+import trading
 from macd import ConvergeDiverge
 from ema import MovingAverage
+from safefile import SafeFile
+from auth import Auth
 from datetime import datetime
 from datetime import timedelta
 
@@ -39,10 +42,6 @@ def interrupts(signal, frame):
 def info(string):
     logging.info(string)
     print(string)
-   
-
-def analyze_and_trade():
-    print('stuff')
 
 
 print('napa bot')
@@ -50,10 +49,13 @@ print('napa bot')
 signal.signal(signal.SIGINT, interrupts)
 signal.signal(signal.SIGTERM, interrupts)
 
-auth = read_map('../../private.txt')
-funds = read_map('./funds.txt')
+funds_file = SafeFile('./funds.txt', './funds_backup.txt', './funds_update.txt', './funds_update_backup.txt')
+orders_file = SafeFile('./orders.txt', './orders_backup.txt', './orders_update.txt', './orders_update_backup.txt')
+
+auth = Auth(read_map('../../private.txt'))
 settings = read_map('./settings.txt')
-order_id_list = read_list('./orders.txt')
+funds = read_map(funds_file.path)
+order_id_list = read_list(orders_file.path)
 
 print('funds', funds)
 print('settings', settings)
@@ -66,10 +68,8 @@ ema_short = int(settings['ema-short'])
 ema_long = int(settings['ema-long'])
 time_interval = int(settings['granularity'])
 time_offset = ema_long * time_interval
-
-accounts, status = gdax.get_accounts(auth)
-for key, current_account in accounts.items():
-    print('account', current_account.currency, current_account.available)
+product = settings['product']
+granularity = settings['granularity']
 
 orders = []
 for order_id in order_id_list:
@@ -78,11 +78,11 @@ for order_id in order_id_list:
     orders.append(current_order)
 
 last_candle_time = 0
-    
+
 while run:
     end = datetime.utcnow()
     start = end - timedelta(seconds=time_offset)
-    candles, status = gdax.get_candles('BTC-USD', start.isoformat(), end.isoformat(), settings['granularity'])
+    candles, status = gdax.get_candles(product, start.isoformat(), end.isoformat(), granularity)
     candle_num = len(candles)
     if candle_num > 0 and candles[-1].time > last_candle_time:
         last_candle_time = candles[-1].time
@@ -91,7 +91,7 @@ while run:
             current_candle = candles[index]
             macd.update(current_candle.closing)
         print(macd.current, macd.signal)
-        analyze_and_trade()
+        trading.process(auth, product, orders, orders_file, funds, funds_file, macd)
         wait_til = time.time() + time_interval
     else:
         wait_til = time.time() + timedelta(seconds=10)
@@ -99,3 +99,4 @@ while run:
     while run and time.time() < wait_til:
         time.sleep(2)
 print('close')
+

@@ -4,6 +4,18 @@ from rest import request, private_request
 SITE = 'api.gdax.com'
 
 
+class Ticker:
+    
+    def __init__(self, ticker_data):
+        self.trade_id = int(ticker_data.get('trade_id') or 0)
+        self.price = float(ticker_data.get('price') or 0)
+        self.size = float(ticker_data.get('size') or 0)
+        self.bid = float(ticker_data.get('bid') or 0)
+        self.ask = float(ticker_data.get('ask') or 0)
+        self.volume = float(ticker_data.get('volume') or 0)
+        self.time = ticker_data.get('time')
+
+
 class NewOrder:
     
     def __init__(self, account_data):
@@ -44,6 +56,15 @@ class Order:
         self.executed_value = float(order_data.get('executed_value') or 0)
         self.status = order_data.get('status')
         self.settled = order_data.get('settled')
+        
+        
+    def coin_price(self):
+        return self.executed_value / self.filled_size
+        
+        
+    def profit_price(self):
+        margin = (self.specified_funds / self.funds - 1.0) * 2.0 + 1.0
+        return self.coin_price() * margin
 
 
 class Account:
@@ -102,4 +123,11 @@ def get_candles(product, start, end, granularity):
         candles.append(Candle(read_candle))
     candles.sort(key=lambda c: c.time, reverse=False)
     return candles, status
+
+
+def get_ticker(product):
+    read, status = request('GET', SITE, '/products/' + product + '/ticker', '')
+    if status != 200 or not isinstance(read, dict):
+        return read, status
+    return Ticker(read), status
 
