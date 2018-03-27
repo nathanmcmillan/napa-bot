@@ -7,6 +7,7 @@ import base64
 import json
 import gdax
 import os
+import printing
 
 
 def process(auth, product, orders, orders_file, funds, funds_file, macd):
@@ -18,6 +19,7 @@ def process(auth, product, orders, orders_file, funds, funds_file, macd):
         for existing_order in orders:
             coin_price = existing_order.coin_price()
             if percent_change(coin_price, ticker.price) < 0.05:
+                print('existing order', existing_order.id, 'bought at $', coin_price, 'within range of ticker at $', ticker.price)
                 return
         accounts, status = gdax.get_accounts(auth)
         product_fund = funds[product]
@@ -30,6 +32,9 @@ def process(auth, product, orders, orders_file, funds, funds_file, macd):
                 funds[product] = funds[product] - settled_order.executed_value - settled_order.fill_fees
                 orders.append(settled_order)
                 updates = True
+                printing.info('buy', settled_order.id)
+            else:
+                printing.info(status, 'failed to buy:', pending_order)
     elif macd.signal == 'sell':
         for order_to_sell in orders[:]:
             min_price = order_to_sell.profit_price()
@@ -41,6 +46,9 @@ def process(auth, product, orders, orders_file, funds, funds_file, macd):
                     funds[product] = funds[product] + profits * 0.85
                     orders.remove(order_to_sell)
                     updates = True
+                    printing.info('sell', settled_order.id)
+                else:
+                    printing.info(status, 'failed to sell', pending_order)
     if updates:
         update_orders_file(orders_file, orders)
         update_funds_file(funds_file, funds)
