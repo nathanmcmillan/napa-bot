@@ -39,12 +39,12 @@ def process(auth, product, orders, orders_file, funds, funds_file, macd):
                     settled_order = wait_til_settled(auth, pending_order.id)
                     profits = settled_order.executed_value - order_to_sell.executed_value - settled_order.fill_fees
                     funds[product] = funds[product] + profits * 0.85
-                    orders.remove(order)
+                    orders.remove(order_to_sell)
                     updates = True
     if updates:
         update_orders_file(orders_file, orders)
         update_funds_file(funds_file, funds)
-        
+
 
 def update_orders_file(orders_file, order_list):
     data = ''
@@ -58,7 +58,7 @@ def update_funds_file(funds_file, fund_map):
     for currency, amount in fund_map.items():
         data += currency + ' ' + amount + '\n'
     funds_file.write(data)
-    
+
 
 def wait_til_settled(auth, order_id):
     while True:
@@ -68,27 +68,20 @@ def wait_til_settled(auth, order_id):
             return order_update
         print('waiting for order to settle')
 
-        
+
 def buy(auth, product_id, funds):
-    js_map = {
-        'type': 'market',
-        'side': 'buy',
-        'product_id': product_id,
-        'funds': funds
-    }
+    js_map = {'type': 'market', 'side': 'buy', 'product_id': product_id, 'funds': funds}
     js = json.dumps(js_map)
     print(js)
     return gdax.place_order(auth, js)
 
 
 def sell(auth, order):
-    js_map = {
-        'type': 'market',
-        'side': 'sell',
-        'product_id': order.product_id,
-        'sell': str(order.filled_size)
-    }
+    js_map = {'type': 'market', 'side': 'sell', 'product_id': order.product_id, 'sell': str(order.filled_size)}
     js = json.dumps(js_map)
     print(js)
     return gdax.place_order(auth, js)
-    
+
+
+def percent_change(a, b):
+    return abs(a - b) / b

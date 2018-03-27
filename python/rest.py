@@ -32,6 +32,7 @@ def request(method, site, path, body):
     except Exception:
         return raw_js, status
 
+
 def private_request(auth, method, site, path, body):
     con = prepare_request(method, site, path, body)
     timestamp = str(time.time())
@@ -53,6 +54,3 @@ def private_request(auth, method, site, path, body):
         return json.loads(raw_js.decode()), status
     except Exception:
         return raw_js, status
-    
-    
-    

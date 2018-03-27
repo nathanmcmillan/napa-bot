@@ -1,11 +1,9 @@
 from rest import request, private_request
 
-
 SITE = 'api.gdax.com'
 
 
 class Ticker:
-    
     def __init__(self, ticker_data):
         self.trade_id = int(ticker_data.get('trade_id') or 0)
         self.price = float(ticker_data.get('price') or 0)
@@ -17,8 +15,7 @@ class Ticker:
 
 
 class NewOrder:
-    
-    def __init__(self, account_data):
+    def __init__(self, order_data):
         self.id = order_data.get('id')
         self.price = float(order_data.get('price') or 0)
         self.size = float(order_data.get('size') or 0)
@@ -34,10 +31,9 @@ class NewOrder:
         self.executed_value = float(order_data.get('executed_value') or 0)
         self.status = order_data.get('status')
         self.settled = order_data.get('settled')
-        
+
 
 class Order:
-
     def __init__(self, order_data):
         self.id = order_data.get('id')
         self.size = float(order_data.get('size') or 0)
@@ -56,19 +52,16 @@ class Order:
         self.executed_value = float(order_data.get('executed_value') or 0)
         self.status = order_data.get('status')
         self.settled = order_data.get('settled')
-        
-        
+
     def coin_price(self):
         return self.executed_value / self.filled_size
-        
-        
+
     def profit_price(self):
         margin = (self.specified_funds / self.funds - 1.0) * 2.0 + 1.0
         return self.coin_price() * margin
 
 
 class Account:
-    
     def __init__(self, account_data):
         self.id = account_data['id']
         self.currency = account_data['currency']
@@ -77,11 +70,10 @@ class Account:
         self.hold = float(account_data['hold'])
         self.profile_id = account_data['profile_id']
 
-        
+
 class Candle:
-    
     def __init__(self, candle_data):
-        self.time = int(candle_data[0])
+        self.time = float(candle_data[0])
         self.low = float(candle_data[1])
         self.high = float(candle_data[2])
         self.open = float(candle_data[3])
@@ -95,14 +87,14 @@ def place_order(auth, post):
         return read, status
     return NewOrder(read), status
 
-        
+
 def get_order(auth, id):
     read, status = private_request(auth, 'GET', SITE, '/orders/' + id, '')
     if status != 200 or not isinstance(read, dict):
         return read, status
     return Order(read), status
-    
-    
+
+
 def get_accounts(auth):
     read, status = private_request(auth, 'GET', SITE, '/accounts', '')
     if status != 200 or not isinstance(read, list):
@@ -112,7 +104,7 @@ def get_accounts(auth):
         new_account = Account(read_account)
         accounts[new_account.currency] = new_account
     return accounts, status
-    
+
 
 def get_candles(product, start, end, granularity):
     read, status = request('GET', SITE, '/products/' + product + '/candles?start=' + start + '&end=' + end + '&granularity=' + granularity, '')
@@ -130,4 +122,3 @@ def get_ticker(product):
     if status != 200 or not isinstance(read, dict):
         return read, status
     return Ticker(read), status
-

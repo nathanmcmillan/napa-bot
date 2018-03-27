@@ -12,7 +12,6 @@ from auth import Auth
 from datetime import datetime
 from datetime import timedelta
 
-
 run = True
 
 
@@ -34,7 +33,8 @@ def read_list(path):
 
 
 def interrupts(signal, frame):
-    print(' signal interrupt')
+    print()
+    print('signal interrupt')
     global run
     run = False
 
@@ -44,7 +44,9 @@ def info(string):
     print(string)
 
 
-print('napa bot')
+print('----------------------------------------')
+print('|               napa bot               |')
+print('----------------------------------------')
 
 signal.signal(signal.SIGINT, interrupts)
 signal.signal(signal.SIGTERM, interrupts)
@@ -66,7 +68,7 @@ print('orders', order_id_list)
 
 ema_short = int(settings['ema-short'])
 ema_long = int(settings['ema-long'])
-time_interval = int(settings['granularity'])
+time_interval = float(settings['granularity'])
 time_offset = ema_long * time_interval
 product = settings['product']
 granularity = settings['granularity']
@@ -77,11 +79,13 @@ for order_id in order_id_list:
     print('order', current_order.id, current_order.side, current_order.executed_value, current_order.fill_fees)
     orders.append(current_order)
 
-last_candle_time = 0
+last_candle_time = 0.0
+first_iteration = True
 
 while run:
     end = datetime.utcnow()
     start = end - timedelta(seconds=time_offset)
+    print('polling from', start.isoformat(), 'to', end.isoformat())
     candles, status = gdax.get_candles(product, start.isoformat(), end.isoformat(), granularity)
     candle_num = len(candles)
     if candle_num > 0 and candles[-1].time > last_candle_time:
@@ -90,13 +94,20 @@ while run:
         for index in range(1, candle_num):
             current_candle = candles[index]
             macd.update(current_candle.closing)
-        print(macd.current, macd.signal)
+        print('macd', macd.current, 'signal', macd.signal)
         trading.process(auth, product, orders, orders_file, funds, funds_file, macd)
-        wait_til = time.time() + time_interval
+        if first_iteration:
+            wait = time_interval - (time.time() - candles[-1].time)
+            if wait < 0.0:
+                wait_til = time.time() + time_interval
+            else:
+                wait_til = time.time() + wait
+                first_iteration = False
+        else:
+            wait_til = time.time() + time_interval
     else:
-        wait_til = time.time() + timedelta(seconds=10)
-    print('sleeping til', wait_til)
+        wait_til = time.time() + 10.0
+    print('sleeping til', datetime.fromtimestamp(wait_til).strftime('%I:%M:%S %p'))
     while run and time.time() < wait_til:
         time.sleep(2)
 print('close')
-
