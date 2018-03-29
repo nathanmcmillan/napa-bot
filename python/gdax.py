@@ -80,6 +80,9 @@ class Candle:
         self.closing = float(candle_data[4])
         self.volume = float(candle_data[5])
 
+    def typical_price(self):
+        return (self.high + self.low + self.closing) / 3
+
 
 def place_order(auth, post):
     read, status = private_request(auth, 'POST', SITE, '/orders', post)

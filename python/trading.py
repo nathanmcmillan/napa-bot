@@ -10,12 +10,15 @@ import os
 import printing
 
 
-def process(auth, product, orders, orders_file, funds, funds_file, macd):
-    if macd.signal == 'wait':
+def process(auth, product, orders, orders_file, funds, funds_file, signal):
+    if signal == 'wait':
         return
     updates = False
     ticker, status = gdax.get_ticker(product)
-    if macd.signal == 'buy':
+    if status != 200:
+        print('could not get ticker', status)
+        return
+    if signal == 'buy':
         for existing_order in orders:
             coin_price = existing_order.coin_price()
             if percent_change(coin_price, ticker.price) < 0.05:
@@ -29,26 +32,33 @@ def process(auth, product, orders, orders_file, funds, funds_file, macd):
             pending_order, status = buy(auth, product, str(buy_size))
             if status == 200:
                 settled_order = wait_til_settled(auth, pending_order.id)
-                funds[product] = funds[product] - settled_order.executed_value - settled_order.fill_fees
+                cost = settled_order.executed_value + settled_order.fill_fees
+                funds[product] = funds[product] - cost
                 orders.append(settled_order)
                 updates = True
-                printing.info('buy', settled_order.id)
+                printing.log('bought {} cost ${}'.format(settled_order.id, cost))
             else:
-                printing.info(status, 'failed to buy:', pending_order)
-    elif macd.signal == 'sell':
+                printing.log('{} failed to buy {}'.format(status, pending_order))
+        else:
+            printing.log('not enough funds ${} {} / ${} available'.format(product_fund, product, available_usd))
+    elif signal == 'sell':
+        if len(orders) == 0:
+            print('nothing to sell')
+            return
         for order_to_sell in orders[:]:
             min_price = order_to_sell.profit_price()
+            print(product, '|', ticker.price, '>', min_price, '?')
             if ticker.price > min_price:
                 pending_order, status = sell(auth, order_to_sell)
                 if status == 200:
                     settled_order = wait_til_settled(auth, pending_order.id)
-                    profits = settled_order.executed_value - order_to_sell.executed_value - settled_order.fill_fees
-                    funds[product] = funds[product] + profits * 0.85
+                    profit = settled_order.executed_value - order_to_sell.executed_value - settled_order.fill_fees
+                    funds[product] = funds[product] + profit * 0.85
                     orders.remove(order_to_sell)
                     updates = True
-                    printing.info('sell', settled_order.id)
+                    printing.log('sold {} for profit ${}'.format(settled_order.id, profit))
                 else:
-                    printing.info(status, 'failed to sell', pending_order)
+                    printing.log('{} failed to sell {}'.format(status, pending_order))
     if updates:
         update_orders_file(orders_file, orders)
         update_funds_file(funds_file, funds)
