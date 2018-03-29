@@ -11,7 +11,7 @@ class MovingAverage:
 class ConvergeDiverge:
     def __init__(self, short, long, closing):
         self.short = MovingAverage(short, closing)
-        self.long = MovingAverage(long, closing)
+        self.!!!!!change to ema_long = MovingAverage(long, closing)
         self.current = 0
         self.signal = 'wait'
 
