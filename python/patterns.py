@@ -6,7 +6,12 @@ def doji(candle):
 
 
 def hammer(candle):
-    return True
+    if math.isclose(candle.closing, candle.high):
+        body = abs(candle.closing - candle.open)
+        wick = candle.closing - candle.low
+        if wick > body * 2.0:
+            return (True, 'white')
+    return (False, '')
 
 
 def invert_hammer(candle):

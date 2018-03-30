@@ -4,6 +4,7 @@ class MovingAverage:
         self.weight = 2.0 / (float(periods) + 1.0)
         self.current = initial
 
+        
     def update(self, value):
         self.current = (value - self.current) * self.weight + self.current
 
@@ -15,6 +16,7 @@ class ConvergeDiverge:
         self.current = 0
         self.signal = 'wait'
 
+        
     def update(self, closing):
         self.short.update(closing)
         self.long.update(closing)
