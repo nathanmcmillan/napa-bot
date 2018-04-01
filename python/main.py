@@ -19,8 +19,8 @@ run = True
 
 def read_map(path):
     map = {}
-    with open(path, "r") as file:
-        for line in file:
+    with open(path, "r") as f:
+        for line in f:
             (key, value) = line.split()
             map[key] = value
     return map
@@ -37,8 +37,8 @@ def read_float_map(path):
 
 def read_list(path):
     ls = []
-    with open(path, "r") as file:
-        for line in file:
+    with open(path, "r") as f:
+        for line in f:
             ls.append(line.strip())
     return ls
 
