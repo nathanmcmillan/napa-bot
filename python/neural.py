@@ -8,11 +8,13 @@ class Network:
         self.learning_rate = learning_rate
         self.layers = []
         
+        
     def new_hidden_layer(num):
         layer = [Neuron(1)]
         for i in range(num):
             layer.append(Neuron(random.random()))
         return layer
+    
     
     def connect(self):
         size = len(self.layers)
@@ -22,6 +24,12 @@ class Network:
                 b = self.layers[index_b]
                 a.to.append(Synapse(a, b, 1.0))
                 b.from.append(Synapse(b, a, 1.0))
+                
+                
+    def train(self, given, answer):
+        # for g in given:
+        #   for
+        return
         
 class Neuron:
     def __init__(self, weight):

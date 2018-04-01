@@ -1,34 +1,46 @@
 import math
 
 
-def doji(candle):
-    return True
-
-
 def hammer(candle):
-    if math.isclose(candle.closing, candle.high):
-        body = abs(candle.closing - candle.open)
-        wick = candle.closing - candle.low
-        if wick > body * 2.0:
-            return (True, 'white')
-    return (False, '')
-
-
-def invert_hammer(candle):
-    return True
-
-
-def marubozu(candle):
-    if math.isclose(candle.open, candle.low) and math.isclose(candle.closing, candle.high):
-        return (True, 'white')
-    if math.isclose(candle.open, candle.high) and math.isclose(candle.closing, candle.low):
-        return (True, 'black')
+    body = abs(candle.open - candle.closing)
+    wick = abs(min(candle.open, candle.closing) - candle.low)
+    if wick > body * 2.0:
+        if is_close(candle.closing, candle.high):
+            return (True, 'buy')
+        elif is_close(candle.open, candle.high):
+            return (True, 'sell')
     return (False, '')
 
 
 def shooting_star(candle):
-    return True
+    body = abs(candle.open - candle.closing)
+    wick = abs(max(candle.open, candle.closing) - candle.high)
+    if wick > body * 2.0:
+        if is_close(candle.open, candle.low):
+            return (True, 'buy')
+        elif is_close(candle.closing, candle.low):
+            return (True, 'sell')
+    return (False, '')
 
 
-def spin_top(candle):
-    return True
+def marubozu(candle):
+    if is_close(candle.open, candle.low) and is_close(candle.closing, candle.high):
+        return (True, 'buy')
+    if is_close(candle.open, candle.high) and is_close(candle.closing, candle.low):
+        return (True, 'sell')
+    return (False, '')
+
+
+def trend(candles):
+    if candles[0].closing < candles[-1].closing:
+        return 'uptrend'
+    else:
+        return 'downtrend'
+
+    
+def is_close(a, b):
+    relative = 1e-09
+    absolute = 0.0
+    return abs(a - b) <= max(relative * max(abs(a), abs(b)), absolute)
+    
+    

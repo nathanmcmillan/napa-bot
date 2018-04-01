@@ -10,18 +10,18 @@ class MovingAverage:
 
 
 class ConvergeDiverge:
-    def __init__(self, short, long, closing):
-        self.short = MovingAverage(short, closing)
-        self.!!!!!change to ema_long = MovingAverage(long, closing)
+    def __init__(self, ema_short, ema_long, closing):
+        self.ema_short = MovingAverage(ema_short, closing)
+        self.ema_long = MovingAverage(ema_long, closing)
         self.current = 0
         self.signal = 'wait'
 
         
     def update(self, closing):
-        self.short.update(closing)
-        self.long.update(closing)
+        self.ema_short.update(closing)
+        self.ema_long.update(closing)
         before = self.current
-        self.current = self.short.current - self.long.current
+        self.current = self.ema_short.current - self.ema_long.current
         if before < 0 and self.current > 0:
             self.signal = "buy"
         elif before > 0 and self.current < 0:

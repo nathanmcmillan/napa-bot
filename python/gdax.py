@@ -73,7 +73,7 @@ class Account:
 
 class Candle:
     def __init__(self, candle_data):
-        self.time = float(candle_data[0])
+        self.time = int(candle_data[0])
         self.low = float(candle_data[1])
         self.high = float(candle_data[2])
         self.open = float(candle_data[3])

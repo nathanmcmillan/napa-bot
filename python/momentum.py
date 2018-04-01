@@ -1,6 +1,25 @@
 from trends import MovingAverage
 
 
+class OnBalanceVolume:
+    def __init__(self):
+        self.signal = "wait"
+        self.current = None
+        
+        
+    def update(self, candles):
+        end = len(candles)
+        previous = candles[0].closing
+        self.current = 0.0
+        for index in range(1, end):
+            candle = candles[index]
+            if candle.closing > previous:
+                self.current += candle.volume
+            elif candle.closing < previous:
+                self.current -= candle.volume
+            previous = candle.closing
+
+    
 class MoneyFlow:
     def __init__(self, periods):
         self.signal = "wait"

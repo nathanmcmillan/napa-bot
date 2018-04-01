@@ -28,7 +28,7 @@ def process(auth, product, orders, orders_file, funds, funds_file, signal):
         product_fund = funds[product]
         available_usd = accounts['USD'].available
         if product_fund > available_usd and product_fund > 20.0:
-            buy_size = product_fund / 2.0
+            buy_size = round(product_fund / 2.0, 2)
             pending_order, status = buy(auth, product, str(buy_size))
             if status == 200:
                 settled_order = wait_til_settled(auth, pending_order.id)

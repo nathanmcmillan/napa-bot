@@ -5,9 +5,10 @@ import time
 import json
 import gdax
 import trading
+import patterns
 import printing
 from trends import MovingAverage, ConvergeDiverge
-from momentum import MoneyFlow, RelativeStrength
+from momentum import MoneyFlow, RelativeStrength, OnBalanceVolume
 from safefile import SafeFile
 from auth import Auth
 from datetime import datetime
@@ -87,13 +88,11 @@ quick_time = '%I:%M:%S %p'
 expanded_time = '%m-%d %I:%M:%S %p'
 last_candle_time = 0.0
 first_iteration = True
-macd_text = ''
-volume_text = ''
-money_flow_text = ''
-relative_strength_text = ''
+analysis_text = ''
 
 money_flow_index = MoneyFlow(ema_short)
 relative_strength_index = RelativeStrength(ema_short)
+balance_volume = OnBalanceVolume()
 
 while run:
     end = datetime.utcnow()
@@ -104,17 +103,20 @@ while run:
     if candle_num >= ema_short and candles[-1].time > last_candle_time:
         last_candle_time = candles[-1].time
         macd = ConvergeDiverge(ema_short, ema_long, candles[0].closing)
-        volume_ema = MovingAverage(ema_short, candles[0].volume)
         money_flow_index.update(candles)
         relative_strength_index.update(candles)
+        balance_volume.update(candles)
         for index in range(1, candle_num):
             current_candle = candles[index]
             macd.update(current_candle.closing)
-            volume_ema.update(current_candle.volume)
-        macd_text = ' | macd {:.2f}'.format(macd.current)
-        volume_text = ' | volume ema {:.2f}'.format(volume_ema.current)
-        money_flow_text = ' | money flow {:.2f}'.format(money_flow_index.current)
-        relative_strength_text = ' | relative strength {:.2f}'.format(relative_strength_index.current)
+        analysis_text = '{:.2f} | {}'.format(candles[-1].closing, patterns.trend(candles))
+        analysis_text += ' | macd {:.2f}'.format(macd.current)
+        analysis_text += ' | flow {:.2f}'.format(money_flow_index.current)
+        analysis_text += ' | obv {:.2f}'.format(balance_volume.current)
+        analysis_text += ' | rsi {:.2f}'.format(relative_strength_index.current)
+        analysis_text += ' | hammer {}'.format(patterns.hammer(candles[-1]))
+        analysis_text += ' | star {}'.format(patterns.shooting_star(candles[-1]))
+        analysis_text += ' | marubozu {}'.format(patterns.marubozu(candles[-1]))
         trading.process(auth, product, orders, orders_file, funds, funds_file, macd.signal)
         if first_iteration:
             wait = time_interval - (time.time() - candles[-1].time)
@@ -127,8 +129,9 @@ while run:
             wait_til = time.time() + time_interval
     else:
         wait_til = time.time() + 10.0
-    print_out += macd_text + volume_text + money_flow_text + relative_strength_text + ' | sleeping - {}'.format(datetime.fromtimestamp(wait_til).strftime(quick_time))
-    print(print_out)
+    print_out += ' | sleeping - {}'.format(datetime.fromtimestamp(wait_til).strftime(quick_time))
+    print(analysis_text)
+    # print(print_out)
     while run and time.time() < wait_til:
         time.sleep(2)
 print('close')
