@@ -23,7 +23,7 @@ signal.signal(signal.SIGINT, interrupts)
 signal.signal(signal.SIGTERM, interrupts)
 
 run = True
-file_out = '../candles.txt'
+file_out = '../candles-btc-usd.txt'
 product = 'BTC-USD'
 granularity = '3600'
 time_interval = float(granularity) * 200.0
