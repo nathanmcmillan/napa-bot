@@ -30,10 +30,10 @@ neural_network = []
 
 with open(file_in, "r") as f:
     for line in f:
-        if !run:
+        if not run:
             break
         candle = gdax.Candle(line.split())
-        
+
 print('writing to file')
 with open(file_out, "w+") as f:
     f.write('hammer 0.12\n')

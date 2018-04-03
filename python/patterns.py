@@ -37,10 +37,8 @@ def trend(candles):
     else:
         return 'downtrend'
 
-    
+
 def is_close(a, b):
     relative = 1e-09
     absolute = 0.0
     return abs(a - b) <= max(relative * max(abs(a), abs(b)), absolute)
-    
-    

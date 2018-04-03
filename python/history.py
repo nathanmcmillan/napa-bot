@@ -29,7 +29,7 @@ granularity = '3600'
 time_interval = float(granularity) * 200.0
 time_format = '%Y-%m-%d %I:%M:%S %p'
 candle_dictionary = {}
-start = datetime.utcnow() - timedelta(days=365.0) 
+start = datetime.utcnow() - timedelta(days=365.0)
 
 if os.path.exists(file_out):
     with open(file_out, "r") as f:
@@ -47,7 +47,7 @@ while run:
     start = end
     if start > datetime.utcnow():
         break
-        
+
 print('writing to file')
 with open(file_out, "w+") as f:
     for key, candle in sorted(candle_dictionary.items()):
