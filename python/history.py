@@ -29,7 +29,7 @@ granularity = '3600'
 time_interval = float(granularity) * 200.0
 time_format = '%Y-%m-%d %I:%M:%S %p'
 candle_dictionary = {}
-start = datetime.utcnow() - timedelta(days=365.0)
+start = datetime.utcnow() - timedelta(days=(365.0 * 5.0))
 
 if os.path.exists(file_out):
     with open(file_out, "r") as f:
