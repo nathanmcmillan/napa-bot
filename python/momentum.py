@@ -3,7 +3,6 @@ from trends import MovingAverage
 
 class OnBalanceVolume:
     def __init__(self):
-        self.signal = "wait"
         self.current = None
 
     def update(self, candles):

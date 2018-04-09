@@ -7,7 +7,7 @@ import gdax
 import trading
 import patterns
 import printing
-from trends import MovingAverage, ConvergeDiverge
+from trends import MovingAverage, ConvergeDiverge, AverageDirectional
 from momentum import MoneyFlow, RelativeStrength, OnBalanceVolume
 from safefile import SafeFile
 from auth import Auth
@@ -93,6 +93,7 @@ analysis_text = ''
 money_flow_index = MoneyFlow(ema_short)
 relative_strength_index = RelativeStrength(ema_short)
 balance_volume = OnBalanceVolume()
+directional_index = AverageDirectional(ema_short)
 
 while run:
     end = datetime.utcnow()
@@ -106,6 +107,7 @@ while run:
         money_flow_index.update(candles)
         relative_strength_index.update(candles)
         balance_volume.update(candles)
+        directional_index.update(candles)
         for index in range(1, candle_num):
             current_candle = candles[index]
             macd.update(current_candle.closing)
@@ -117,6 +119,7 @@ while run:
         analysis_text += ' | hammer {}'.format(patterns.hammer(candles[-1]))
         analysis_text += ' | star {}'.format(patterns.shooting_star(candles[-1]))
         analysis_text += ' | marubozu {}'.format(patterns.marubozu(candles[-1]))
+        analysis_text += ' | adx {}'.format(directional_index.current)
         trading.process(auth, product, orders, orders_file, funds, funds_file, macd.signal)
         if first_iteration:
             wait = time_interval - (time.time() - candles[-1].time)

@@ -101,5 +101,12 @@ def sell(auth, order):
     return gdax.place_order(auth, js)
 
 
+def limit_order(auth, product_id, side, price, size, time_in_force, cancel_after, post_only):
+    js_map = {'type': 'limit', 'side': side, 'product_id': product_id, 'price': price, 'size': size, 'time_in_force': time_in_force, 'cancel_after': cancel_after, 'post_only': True}
+    js = json.dumps(js_map)
+    print(js)
+    return gdax.place_order(auth, js)
+
+
 def percent_change(a, b):
     return abs(a - b) / b
