@@ -111,7 +111,7 @@ while run:
         for index in range(1, candle_num):
             current_candle = candles[index]
             macd.update(current_candle.closing)
-        analysis_text = '{:.2f} | {}'.format(candles[-1].closing, patterns.trend(candles))
+        analysis_text = '{:.2f} | {}'.format(candles[-1].closing, patterns.trend(candles, ema_short))
         analysis_text += ' | macd {:.2f}'.format(macd.current)
         analysis_text += ' | flow {:.2f}'.format(money_flow_index.current)
         analysis_text += ' | obv {:.2f}'.format(balance_volume.current)

@@ -3,6 +3,7 @@ import signal
 import time
 import json
 import os.path
+import patterns
 from gdax import Candle
 from trends import ConvergeDiverge, AverageDirectional
 from momentum import RelativeStrength
@@ -51,41 +52,78 @@ historial_candle_count = len(historical_candles)
 start = 0
 end = ema_long
 funds = 1000.0
-print('starting funds ${:.2f}'.format(funds))
-while end < historial_candle_count:
-    candles = historical_candles[start:end]
-    candle_count = len(candles)
-    macd = ConvergeDiverge(ema_short, ema_long, candles[0].closing)
-    directional_index = AverageDirectional(ema_short)
-    directional_index.update(candles)
-    relative_strength_index = RelativeStrength(ema_short)
-    relative_strength_index.update(candles)
-    for index in range(1, candle_count):
-        current_candle = candles[index]
-        macd.update(current_candle.closing)
-    if macd.signal == 'buy':
-        # if relative_strength_index.current < 0.3 and directional_index.current > 0.4:
+
+
+def trade(candles, signal):
+    global funds
+    global orders
+    ticker_price = candles[-1].closing
+    if signal == 'buy':
         if funds > 20.0:
-            buy_size = funds / 2.0
+            '''for existing_order in orders:
+                if abs(existing_order.coin_price - ticker_price) / ticker_price < 0.05:
+                    print('not buying due to existing order bought at ${}'.format(ticker_price))
+                    return'''
+            buy_size = funds * 0.5
             funds -= buy_size
             orders.append(SimOrder(candles[-1].closing, None, buy_size))
-            print('buying | coin price ${:.2f} using ${:.2f}'.format(candles[-1].closing, buy_size))
+            print('buy | {} | coin price ${:.2f} using ${:.2f}'.format(candles[-1].time, candles[-1].closing, buy_size))
         else:
             print('not enough funds ${:.2f}'.format(funds))
-    elif macd.signal == 'sell':
-        # elif relative_strength_index.current > 0.7 and directional_index.current > 0.4:
-        ticker_price = candles[-1].closing
+    elif signal == 'sell':
         for order_to_sell in orders[:]:
             min_price = order_to_sell.profit_price()
             if ticker_price > min_price:
-                settled_order = SimOrder(ticker_price, order_to_sell.size, None)
-                usd = ticker_price * order_to_sell.size
-                profit = usd - order_to_sell.usd
-                funds += usd + profit * 0.85
+                funds += ticker_price * order_to_sell.size
                 orders.remove(order_to_sell)
-                print('selling | ${:.2f} -> ${:.2f} | profit ${:.2f} | funds ${:.2f}'.format(order_to_sell.coin_price, ticker_price, profit, funds))
+                print('sell | {} | ${:.2f} -> ${:.2f} | funds ${:.2f}'.format(candles[-1].time, order_to_sell.coin_price, ticker_price, funds))
+
+
+print('funds ${:.2f}'.format(funds))
+while end < historial_candle_count:
+    if historical_candles[start].time < 1513504800:
+        start += 1
+        end += 1
+        continue
+    candles = historical_candles[start:end]
+    candle_count = len(candles)
+    macd = ConvergeDiverge(ema_short, ema_long, candles[0].closing)
+    directional_index = AverageDirectional(14)
+    directional_index.update(candles)
+    relative_strength_index = RelativeStrength(14)
+    relative_strength_index.update(candles)
+    today_color = patterns.color(candles[-1])
+    yesterday_color = patterns.color(candles[-2])
+    yesterday_maru = patterns.marubozu(candles[-2])
+    hammer = patterns.hammer(candles[-1])
+    star = patterns.shooting_star(candles[-1])
+    maru = patterns.marubozu(candles[-1])
+    trend = patterns.trend(candles, 3)
+    for index in range(1, candle_count):
+        current_candle = candles[index]
+        macd.update(current_candle.closing)
+    if trend == 'down' and maru == 'buy':
+        trade(candles, 'buy')
+    elif today_color == 'red' and yesterday_color == 'red':
+        trade(candles, 'sell')
     start += 1
     end += 1
-print('ending funds ${:.2f}'.format(funds))
+print('funds ${:.2f}'.format(funds))
+liquidate = 0.0
 for order in orders:
-    print('coin price ${:.2f} size {:.4f} ${:.2f}'.format(order.coin_price, order.size, order.usd))
+    liquidate += order.size * historical_candles[-1].closing
+    print('price ${:.2f} size {:.4f} value ${:.2f}'.format(order.coin_price, order.size, order.usd))
+print('total ${:.2f}'.format(funds + liquidate))
+'''
+$ 26,728.09
+buy_funds = funds * 0.5
+trend = patterns.trend(candles, 3)
+if trend == 'up' and maru == 'buy':
+elif trend == 'down' and maru == 'sell':
+
+$ 34,940.68
+buy_funds = funds
+trend = patterns.trend(candles, 3)
+if trend == 'up' and maru == 'buy':
+elif trend == 'down' and maru == 'sell':
+'''
