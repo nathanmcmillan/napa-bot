@@ -6,9 +6,9 @@ def hammer(candle):
     wick = abs(min(candle.open, candle.closing) - candle.low)
     if wick > body * 2.0:
         if is_close(candle.closing, candle.high):
-            return 'buy'
+            return 'green'
         elif is_close(candle.open, candle.high):
-            return 'sell'
+            return 'red'
     return ''
 
 
@@ -17,30 +17,34 @@ def shooting_star(candle):
     wick = abs(max(candle.open, candle.closing) - candle.high)
     if wick > body * 2.0:
         if is_close(candle.open, candle.low):
-            return 'buy'
+            return 'green'
         elif is_close(candle.closing, candle.low):
-            return 'sell'
+            return 'red'
     return ''
 
 
 def marubozu(candle):
     if is_close(candle.open, candle.low) and is_close(candle.closing, candle.high):
-        return 'buy'
+        return 'green'
     if is_close(candle.open, candle.high) and is_close(candle.closing, candle.low):
-        return 'sell'
+        return 'red'
     return ''
 
 
 def trend(candles, periods):
     if candles[-periods].closing < candles[-1].closing:
-        return 'up'
-    return 'down'
+        return 'green'
+    return 'red'
 
 
 def color(candle):
     if candle.closing > candle.open:
         return 'green'
     return 'red'
+
+
+def difference(candle):
+    return candle.low / candle.high
 
 
 def is_close(a, b):
