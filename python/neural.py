@@ -177,4 +177,3 @@ class Network:
         self.set_input(data)
         self.feed_forward()
         return self.get_results()
-
