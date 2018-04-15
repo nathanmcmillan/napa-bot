@@ -1,10 +1,40 @@
 import random
 import math
 
-learning_rate = 0.001
-learning_momentum = 0.01
+learning_rate = 0.09
+learning_momentum = 0.015
 
 
+def combine_networks(a, b):
+    num_layers = len(a.layers)
+    inputs = len(a.layers[0])
+    outputs = len(a.layers[-1])
+    
+    hidden = []
+    for index in range(1, num_layers - 1):
+        layer_len = len(a.layers[index])
+        hidden.append(layer_len)
+    
+    n = Network(inputs, hidden, outputs)
+    
+    for index in range(1, num_layers - 1):
+        layer_a = a.layers[index]
+        layer_b = b.layers[index]
+        layer_n = n.layers[index]
+        layer_len = len(layer_a)
+        for jindex in range(layer_len):
+            neuron_a = layer_a[jindex]
+            neuron_b = layer_b[jindex]
+            neuron_n = layer_n[jindex]
+            synapse_len = len(neuron_a.synapses)
+            for kindex in range(synapse_len):
+                synapse_a = neuron_a.synapses[kindex]
+                synapse_b = neuron_b.synapses[kindex]
+                synapse_n = neuron_n.synapses[kindex]
+                synapse_n.weight = (synapse_a.weight + synapse_b.weight) * 0.5
+                
+    return n
+    
 def tanh(x):
     return math.tanh(x)
 
@@ -13,11 +43,11 @@ def tanh_derivative(x):
     return 1.0 - pow(math.tanh(x), 2)
 
 
-def logistic(x):
+def sigmoid(x):
     return 1.0 / (1.0 + math.exp(-x))
 
 
-def logistic_derivative(x):
+def sigmoid_derivative(x):
     return x * (1.0 - x)
 
 
@@ -62,16 +92,16 @@ class Neuron:
             for neuron in previous_layer:
                 self.synapses.append(Synapse(neuron))
 
-    def feed_forward(self, sigmoid):
+    def feed_forward(self, activate):
         if not self.synapses:
             return
         sum = 0.0
         for synapse in self.synapses:
             sum += synapse.neuron.output * synapse.weight
-        self.output = sigmoid(sum)
+        self.output = activate(sum)
 
-    def back_propagate(self, derivative_sigmoid):
-        self.gradient = self.error * derivative_sigmoid(self.output)
+    def back_propagate(self, d_activate):
+        self.gradient = self.error * d_activate(self.output)
         for synapse in self.synapses:
             synapse.derivative_weight = learning_rate * synapse.neuron.output * self.gradient + learning_momentum * synapse.derivative_weight
             synapse.weight += synapse.derivative_weight
@@ -80,14 +110,14 @@ class Neuron:
 
 
 class Network:
-    def __init__(self, inputs, hidden, outputs, activation='logistic'):
+    def __init__(self, inputs, hidden, outputs, activation='sigmoid'):
         self.layers = []
         if activation == 'rectify':
             self.activation = rectify
             self.activation_derivative = rectify_derivative
-        elif activation == 'logistic':
-            self.activation = logistic
-            self.activation_derivative = logistic_derivative
+        elif activation == 'sigmoid':
+            self.activation = sigmoid
+            self.activation_derivative = sigmoid_derivative
         elif activation == 'tanh':
             self.activation = tanh
             self.activation_derivative = tanh_derivative
@@ -121,16 +151,6 @@ class Network:
             for neuron in current_layer:
                 neuron.feed_forward(self.activation)
 
-    '''
-    def batch_normal_forward(self):
-        size = len(self.layers)
-        for index in range(1, size):
-            current_layer = self.layers[index]
-            mean = neuron_mean(current_layer)
-            variance = neuron_variance(current_layer)
-            no
-    '''
-
     def back_propagate(self, actual):
         size = len(actual)
         for index in range(size):
@@ -138,7 +158,7 @@ class Network:
         for layer in reversed(self.layers):
             for neuron in layer:
                 neuron.back_propagate(self.activation_derivative)
-
+            
     def get_error(self, actual):
         error = 0.0
         size = len(actual)
@@ -158,26 +178,3 @@ class Network:
         self.feed_forward()
         return self.get_results()
 
-
-if __name__ == '__main__':
-    network = Network(2, [3], 2)
-    learning_rate = 0.09
-    learning_momentum = 0.015
-    inputs = [[0, 0], [0, 1], [1, 0], [1, 1]]
-    outputs = [[0, 0], [1, 0], [1, 0], [0, 1]]
-    size = len(inputs)
-    while True:
-        error = 0.0
-        for i in range(size):
-            network.set_input(inputs[i])
-            network.feed_forward()
-            network.back_propagate(outputs[i])
-            error += network.get_error(outputs[i])
-        print('error: ', error)
-        if error < 0.5:
-            break
-    while True:
-        a = float(input('type 1st input :'))
-        b = float(input('type 2nd input :'))
-        prediction = network.predict([a, b])
-        print(prediction)

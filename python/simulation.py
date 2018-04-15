@@ -1,13 +1,5 @@
-import sys
-import signal
-import time
-import json
-import os.path
-import patterns
-import genetics
+import neural
 from gdax import Candle
-from trends import ConvergeDiverge
-from genetics import Genetics
 from operator import itemgetter
 
 debug = False
@@ -33,100 +25,101 @@ def read_map(path):
     return map
 
 
+def get_parameters(candles, start, end):
+    low = candles[start].closing
+    high = candles[start].closing
+    for index in range(start, end):
+        candle = candles[index]
+        if candle.closing < low:
+            low = candle.closing
+        elif candle.closing > high:
+            high = candle.closing
+    price_range = high - low
+    parameters = []
+    for index in range(start, end):
+        candle = candles[index]
+        percent = (candle.closing - low) / price_range
+        parameters.append(percent)
+    return parameters
+
+
 print('----------------------------------------')
 print('|           napa simulation            |')
 print('----------------------------------------')
 
 file_in = '../candles-btc-usd.txt'
-historical_candles = []
+candles = []
 with open(file_in, 'r') as open_file:
     for line in open_file:
         candle = Candle(line.split())
-        historical_candles.append(candle)
-historial_candle_count = len(historical_candles)
+        candles.append(candle)
+candle_count = len(candles)
 
-gene_random_limit = 10
-gene_best_limit = 15
-genetic_list = []
+parameters = 6 # 672 (28 days of hours)
+networks = []
+end_price = candles[-1].closing
 
-for _ in range(20):
-    genetic_list.sort(key=itemgetter(0), reverse=True)
-    genetic_list = genetic_list[:gene_best_limit]
-    genetic_random = []
-    for _ in range(gene_random_limit):
-        genes = Genetics()
-        genes.randomize()
-        genetic_random.append(genes)
-    genetic_todo = []
-    genetic_todo.extend(genetic_random)
-    top_len = min(gene_best_limit, len(genetic_list))
-    for index in range(0, top_len):
-        top_gene = genetic_list[index][1]
-        for random_gene in genetic_random:
-            genetic_todo.append(genetics.mix(top_gene, random_gene))
-        for jindex in range(index + 1, top_len):
-            genetic_todo.append(genetics.mix(top_gene, genetic_list[jindex][1]))
-    print('trying', len(genetic_todo), 'combinations')
-    for genes in genetic_todo:
-        orders = []
+epochs = 5
+random_samples = 1
+top_samples = 5
+
+# todo: dropout
+
+for _ in range(epochs):
+    
+    todo = []
+    
+    random_networks = []
+    for _ in range(random_samples):
+        network = neural.Network(parameters, [parameters], 2)
+        todo.append(network)
+        random_networks.append(network)
+        
+    top = min(top_samples, len(networks))
+    for index in range(0, top):
+        top_network = networks[index][1]
+        for random_network in random_networks:
+            mix = neural.combine_networks(top_network, random_network)
+            todo.append(mix)
+        for jindex in range(index + 1, top):
+            mix = neural.combine_networks(top_network, networks[jindex][1])
+            todo.append(mix)
+
+    print('testing', len(todo), 'networks')    
+    for network in todo:
         start = 0
-        end = 26
+        end = parameters
         funds = 1000.0
+        orders = []
         print('funds ${:.2f}'.format(funds), end=' - ', flush=True)
-        while end < historial_candle_count:
-            if historical_candles[end].time < 1513515600:
-                start += 1
-                end += 1
-                continue
-            candles = historical_candles[start:end]
-            signal = genes.signal(candles)
-            ticker_price = candles[-1].closing
-            if signal == 'buy':
-                if funds > 20.0:
-                    continue_buy = True
-                    if genes.conditions['prevent_similar']:
-                        for existing_order in orders:
-                            if abs(existing_order.coin_price - ticker_price) / ticker_price < genes.conditions['similarity']:
-                                if debug:
-                                    print('not buying due to existing order bought at ${}'.format(ticker_price))
-                                continue_buy = False
-                                break
-                    if continue_buy:
-                        buy_size = funds * genes.conditions['buy_percent']
-                        funds -= buy_size
-                        orders.append(SimOrder(candles[-1].closing, None, buy_size))
-                        if debug:
-                            print('buy | {} | coin price ${:.2f} using ${:.2f}'.format(candles[-1].time, candles[-1].closing, buy_size))
-                elif debug:
-                    print('not enough funds ${:.2f}'.format(funds))
-            elif signal == 'sell':
+        while end < candle_count:
+            signal = network.predict(get_parameters(candles, start, end))
+            if signal[0] > 0.5 and funds > 20.0:
+                ticker = candles[end - 1]
+                buy_size = funds * 0.6
+                funds -= buy_size
+                orders.append(SimOrder(ticker.closing, None, buy_size))
+            elif signal[1] > 0.5:
+                ticker = candles[end - 1]
                 for order_to_sell in orders[:]:
-                    if ticker_price > order_to_sell.coin_price * genes.conditions['sell_percent']:
-                        funds += ticker_price * order_to_sell.size
+                    if ticker.closing > order_to_sell.coin_price:
+                        funds += ticker.closing * order_to_sell.size
                         orders.remove(order_to_sell)
-                        if debug:
-                            print('sell | {} | ${:.2f} -> ${:.2f} | funds ${:.2f}'.format(candles[-1].time, order_to_sell.coin_price, ticker_price, funds))
             start += 1
             end += 1
         worth = 0.0
         for order in orders:
-            worth += order.size * historical_candles[-1].closing
+            worth += order.size * end_price
         worth += funds
         print('total ${:.2f}'.format(worth))
-        genetic_list.append((worth, genes))
+        networks.append((worth, network))
 
-print('========================================')
-genetic_list.sort(key=itemgetter(0), reverse=True)
-print('first genetics')
-top = genetic_list[0]
-print(top[1].buy)
-print(top[1].sell)
-print(top[1].conditions)
-print('funds ${:.2f}'.format(top[0]))
-print('========================================')
-print('second genetics')
-top = genetic_list[1]
-print(top[1].buy)
-print(top[1].sell)
-print(top[1].conditions)
-print('funds ${:.2f}'.format(top[0]))
+networks.sort(key=itemgetter(0), reverse=True)
+for index in range(3):
+    print('top', index + 1, 'funds ${:.2f}'.format(networks[index][0]))
+for layer in networks[0][1].layers:
+    for neuron in layer:
+        for synapse in neuron.synapses:
+            print(str(synapse.weight), end=' ')
+        print()
+    print()
