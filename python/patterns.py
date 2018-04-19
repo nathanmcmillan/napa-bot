@@ -31,8 +31,8 @@ def marubozu(candle):
     return ''
 
 
-def trend(candles, periods):
-    if candles[-periods].closing < candles[-1].closing:
+def trend(candles, start, end):
+    if candles[end].closing > candles[start].closing:
         return 'green'
     return 'red'
 
@@ -41,10 +41,6 @@ def color(candle):
     if candle.closing > candle.open:
         return 'green'
     return 'red'
-
-
-def difference(candle):
-    return candle.low / candle.high
 
 
 def is_close(a, b):

@@ -13,30 +13,43 @@ from datetime import datetime
 from datetime import timedelta
 
 
-def interrupts(signal, frame):
-    print()
-    print('signal interrupt')
-    global run
-    run = False
+class SimOrder:
+    def __init__(self, coin_price, size, usd):
+        self.coin_price = coin_price
+        if size:
+            self.size = size
+            self.usd = coin_price * size
+        else:
+            self.usd = usd
+            self.size = usd / coin_price
 
 
-def prepare_input(candles):
-    end = len(candles)
-    '''
-    low = candles[0].closing
-    high = candles[0].closing
-    for index in range(1, end):
+def prepare_input(candles, start, end):
+    volume_low = candles[start].volume
+    volume_high = candles[start].volume
+    low = candles[start].low
+    high = candles[start].high
+    for index in range(start, end):
         candle = candles[index]
-        if candle.closing < low:
-            low = candle.closing
-        elif candle.closing > high:
-            high = candle.closing
+        if candle.low < low:
+            low = candle.low
+        if candle.high > high:
+            high = candle.high
+        if candle.volume < volume_low:
+            volume_low = candle.volume
+        elif candle.volume > volume_high:
+            volume_high = candle.volume
     price_range = high - low
-    layer_in = []
-    for candle in candles:
-        percent = (candle.closing - low) / price_range
-        layer_in.append(percent)
-    return low, high, layer_in
+    volume_range = volume_high - volume_low
+    parameters = []
+    for index in range(start, end):
+        candle = candles[index]
+        parameters.append((candle.low - low) / price_range)
+        parameters.append((candle.open - low) / price_range)
+        parameters.append((candle.closing - low) / price_range)
+        parameters.append((candle.high - low) / price_range)
+        parameters.append((candle.volume - volume_low) / volume_range)
+    return parameters
     '''
     ema_short = 12
     ema_long = 26
@@ -65,73 +78,75 @@ def prepare_input(candles):
         float(directional_index.current < 0.2),
         float(directional_index.current > 0.4)
     ]
-
-
-def prepare_output(low, high, candles, start, limit):
-    # return [(candle_ahead.closing - low) / (high - low)]
-    # return [float(candle_ahead.closing > candle_end.closing), float(candle_ahead.closing < candle_end.closing)]
-    # return [candle_ahead.closing * 1.01 > candle_end.closing]
-    price = candles[start].closing
-    for index in range(start + 1, start + limit):
-        candle = candles[index]
-        if candle.closing * 1.01 > price:
-            return [1.0, 0.0, 0.0]
-        if candle.closing < price * 0.99:
-            return [0.0, 1.0, 0.0]
-    return [0.0, 0.0, 1.0]
+    '''
 
 
 print('----------------------------------------')
 print('|            napa training             |')
 print('----------------------------------------')
 
-signal.signal(signal.SIGINT, interrupts)
-signal.signal(signal.SIGTERM, interrupts)
-
 run = True
 file_in = '../candles-btc-usd.txt'
 file_out = '../training-btc-usd.txt'
 
-batch = 28
 candles = []
-
 with open(file_in, 'r') as open_file:
     for line in open_file:
         candle = gdax.Candle(line.split())
+        if candle.time < 1513515600:
+            continue
         candles.append(candle)
+candle_end = len(candles) - 1
 
-candle_count = len(candles)
-network = neural.Network(12, [12], 3)
-epochs = 20
-look_ahead = 6
+signal_out = []
+signal_out.append([0.0, 0.0, 1.0])
+for index in range(1, candle_end):
+    if candles[index + 1].closing > candles[index].closing and candles[index - 1].closing > candles[index].closing:
+        signal_out.append([1.0, 0.0, 0.0])
+    elif candles[index].closing > candles[index + 1].closing and candles[index].closing > candles[index - 1].closing:
+        signal_out.append([0.0, 1.0, 0.0])
+    else:
+        signal_out.append([0.0, 0.0, 1.0])
+
+parameters_per_period = 5
+period_range = 24  # 672 (28 days of hours)
+parameters = parameters_per_period * period_range
+end_price = candles[-1].closing
+network = neural.Network(parameters, [parameters], 3)
+epochs = 10
 
 for _ in range(epochs):
-    error = 0.0
     start = 0
-    end = batch
+    end = period_range
+    funds = 1000.0
+    orders = []
+    error = 0.0
     print('training...', end=' ', flush=True)
-    while run and end + look_ahead < candle_count:
-        low, high, layer_in = prepare_input(candles[start:end])
-        actual = prepare_output(low, high, candles, end, look_ahead)
-        network.set_input(layer_in)
+    while run and end < candle_end:
+        signal_in = prepare_input(candles, start, end)
+        network.set_input(signal_in)
         network.feed_forward()
-        network.back_propagate(actual)
-        error += network.get_error(actual)
+        network.back_propagate(signal_out[end])
+        error += network.get_error(signal_out[end])
+        signal = network.get_results()
+        if signal[0] > signal[1] and signal[0] > signal[2] and funds > 20.0:
+            ticker = candles[end - 1]
+            buy_size = funds * 0.6
+            funds -= buy_size
+            orders.append(SimOrder(ticker.closing, None, buy_size))
+        elif signal[1] > signal[0] and signal[1] > signal[2]:
+            ticker = candles[end - 1]
+            for order_to_sell in orders[:]:
+                if ticker.closing > order_to_sell.coin_price:
+                    funds += ticker.closing * order_to_sell.size
+                    orders.remove(order_to_sell)
         start += 1
         end += 1
-    print('error:', error)
-
-start = 0
-end = batch
-
-for _ in range(200):
-    low, high, layer_in = prepare_input(candles[start:end])
-    actual = prepare_output(low, high, candles, end, look_ahead)
-    prediction = network.predict(layer_in)
-    # print('predict', prediction[0] * (high - low) + low, 'actual', actual[0] * (high - low) + low)
-    print('predict', prediction, 'actual', actual, 'is', candles[end + look_ahead].closing, '--', candles[end].closing)
-    start += 1
-    end += 1
+    worth = 0.0
+    for order in orders:
+        worth += order.size * end_price
+    worth += funds
+    print('total ${:.2f} error {}'.format(worth, error))
 
 print('writing to file')
 with open(file_out, "w+") as f:

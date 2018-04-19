@@ -1,9 +1,9 @@
 import neural
 import time
+import patterns
+from trends import ConvergeDiverge
 from gdax import Candle
 from operator import itemgetter
-
-debug = False
 
 
 class SimOrder:
@@ -17,34 +17,8 @@ class SimOrder:
             self.size = usd / coin_price
 
 
-def read_map(path):
-    map = {}
-    with open(path, 'r') as open_file:
-        for line in open_file:
-            (key, value) = line.split()
-            map[key] = value
-    return map
-
-
 def get_parameters(candles, start, end):
-    '''
-    low = candles[start].closing
-    high = candles[start].closing
-    for index in range(start, end):
-        candle = candles[index]
-        if candle.closing < low:
-            low = candle.closing
-        elif candle.closing > high:
-            high = candle.closing
-    price_range = high - low
-    parameters = []
-    for index in range(start, end):
-        candle = candles[index]
-        percent = (candle.closing - low) / price_range
-        parameters.append(percent)
-    return parameters
-    '''
-    volume_low = candles[start].volume
+    '''volume_low = candles[start].volume
     volume_high = candles[start].volume
     low = candles[start].low
     high = candles[start].high
@@ -68,7 +42,28 @@ def get_parameters(candles, start, end):
         parameters.append((candle.closing - low) / price_range)
         parameters.append((candle.high - low) / price_range)
         parameters.append((candle.volume - volume_low) / volume_range)
+    return parameters'''
+    macd = ConvergeDiverge(12, 26, candles[start].closing)
+    for index in range(start + 1, end):
+        candle = candles[index]
+        macd.update(candle.closing)
+    parameters = []
+    parameters.append(float(macd.signal == 'buy'))
+    parameters.append(float(macd.signal == 'sell'))
+    parameters.append(float(patterns.trend(candles, end - 12, end) == 'green'))
+    parameters.append(float(patterns.trend(candles, end - 12, end) == 'red'))
+    for index in range(end - 12, end):
+        candle = candles[index]
+        parameters.append(float(patterns.marubozu(candle) == 'green'))
+        parameters.append(float(patterns.marubozu(candle) == 'red'))
+        parameters.append(float(patterns.hammer(candle) == 'green'))
+        parameters.append(float(patterns.hammer(candle) == 'red'))
+        parameters.append(float(patterns.shooting_star(candle) == 'green'))
+        parameters.append(float(patterns.shooting_star(candle) == 'red'))
+        parameters.append(float(patterns.color(candle) == 'green'))
+        parameters.append(float(patterns.color(candle) == 'red'))
     return parameters
+
 
 print('----------------------------------------')
 print('|           napa simulation            |')
@@ -86,28 +81,27 @@ with open(file_in, 'r') as open_file:
         candles.append(candle)
 candle_count = len(candles)
 
-parameters_per_period = 5
-period_range = 14 # 672 (28 days of hours)
-parameters = parameters_per_period * period_range
+batch = 26
+parameters = 2 + 2 + 8 * 12
 networks = []
 end_price = candles[-1].closing
 
 epochs = 20
 random_samples = 5
 top_samples = 5
-cooldown = 5
-intra_cooldown = 0.5
+cooldown = 1.0
+intra_cooldown = 0.01
 
 for epoch in range(epochs):
-    
+
     todo = []
-    
+
     random_networks = []
     for _ in range(random_samples):
         network = neural.Network(parameters, [parameters], 2)
         todo.append(network)
         random_networks.append(network)
-        
+
     top = min(top_samples, len(networks))
     for index in range(0, top):
         top_network = networks[index][1]
@@ -118,7 +112,7 @@ for epoch in range(epochs):
     print('testing', len(todo), 'networks (', epoch, '/', epochs, ')')
     for network in todo:
         start = 0
-        end = period_range
+        end = batch
         funds = 1000.0
         funds_high = funds
         funds_low = funds
@@ -155,7 +149,7 @@ for epoch in range(epochs):
 networks.sort(key=itemgetter(0), reverse=True)
 for index in range(3):
     print('top', index + 1, 'funds ${:.2f}'.format(networks[index][0]))
-    
+
 print('writing to file... ', end='', flush=True)
 with open(file_out, "w+") as f:
     for layer in networks[0][1].layers:

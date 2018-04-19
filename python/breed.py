@@ -24,15 +24,6 @@ class SimOrder:
             self.size = usd / coin_price
 
 
-def read_map(path):
-    map = {}
-    with open(path, 'r') as open_file:
-        for line in open_file:
-            (key, value) = line.split()
-            map[key] = value
-    return map
-
-
 print('----------------------------------------')
 print('|             napa breed               |')
 print('----------------------------------------')
