@@ -9,14 +9,14 @@ def combine_networks(a, b):
     num_layers = len(a.layers)
     inputs = len(a.layers[0])
     outputs = len(a.layers[-1])
-    
+
     hidden = []
     for index in range(1, num_layers - 1):
         layer_len = len(a.layers[index])
         hidden.append(layer_len)
-    
+
     n = Network(inputs, hidden, outputs)
-    
+
     for index in range(1, num_layers - 1):
         layer_a = a.layers[index]
         layer_b = b.layers[index]
@@ -32,9 +32,10 @@ def combine_networks(a, b):
                 synapse_b = neuron_b.synapses[kindex]
                 synapse_n = neuron_n.synapses[kindex]
                 synapse_n.weight = (synapse_a.weight + synapse_b.weight) * 0.5
-                
+
     return n
-    
+
+
 def tanh(x):
     return math.tanh(x)
 
@@ -130,7 +131,7 @@ class Network:
         for neuron_count in hidden:
             bias = Neuron(None)
             bias.output = 1.0
-            current_layer = []
+            current_layer = [bias]
             for _ in range(neuron_count):
                 current_layer.append(Neuron(self.layers[-1]))
             self.layers.append(current_layer)
@@ -158,7 +159,7 @@ class Network:
         for layer in reversed(self.layers):
             for neuron in layer:
                 neuron.back_propagate(self.activation_derivative)
-            
+
     def get_error(self, actual):
         error = 0.0
         size = len(actual)

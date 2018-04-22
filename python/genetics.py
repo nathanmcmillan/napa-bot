@@ -40,7 +40,7 @@ class GetTrend:
         return self
 
     def get(self):
-        return self.pattern == patterns.trend(global_candles, self.periods)
+        return self.pattern == patterns.trend(global_candles, 0, self.periods)
 
     def to_string(self):
         return '{trend, periods: ' + str(self.periods) + ', signal: ' + self.pattern + '}'

@@ -1,4 +1,4 @@
-import neural
+import binary_network
 import time
 import patterns
 from trends import ConvergeDiverge
@@ -17,56 +17,31 @@ class SimOrder:
             self.size = usd / coin_price
 
 
-def get_parameters(candles, start, end):
-    '''volume_low = candles[start].volume
-    volume_high = candles[start].volume
-    low = candles[start].low
-    high = candles[start].high
-    for index in range(start, end):
-        candle = candles[index]
-        if candle.low < low:
-            low = candle.low
-        if candle.high > high:
-            high = candle.high
-        if candle.volume < volume_low:
-            volume_low = candle.volume
-        elif candle.volume > volume_high:
-            volume_high = candle.volume
-    price_range = high - low
-    volume_range = volume_high - volume_low
-    parameters = []
-    for index in range(start, end):
-        candle = candles[index]
-        parameters.append((candle.low - low) / price_range)
-        parameters.append((candle.open - low) / price_range)
-        parameters.append((candle.closing - low) / price_range)
-        parameters.append((candle.high - low) / price_range)
-        parameters.append((candle.volume - volume_low) / volume_range)
-    return parameters'''
+def set_parameters(network, candles, start, end):
     macd = ConvergeDiverge(12, 26, candles[start].closing)
     for index in range(start + 1, end):
         candle = candles[index]
         macd.update(candle.closing)
-    parameters = []
-    parameters.append(float(macd.signal == 'buy'))
-    parameters.append(float(macd.signal == 'sell'))
-    parameters.append(float(patterns.trend(candles, end - 12, end) == 'green'))
-    parameters.append(float(patterns.trend(candles, end - 12, end) == 'red'))
+    network.ready()
+    network.set_input(float(macd.signal == 'buy'))
+    network.set_input(float(macd.signal == 'sell'))
+    network.set_input(float(patterns.trend(candles, end - 12, end) == 'green'))
+    network.set_input(float(patterns.trend(candles, end - 12, end) == 'red'))
     for index in range(end - 12, end):
         candle = candles[index]
-        parameters.append(float(patterns.marubozu(candle) == 'green'))
-        parameters.append(float(patterns.marubozu(candle) == 'red'))
-        parameters.append(float(patterns.hammer(candle) == 'green'))
-        parameters.append(float(patterns.hammer(candle) == 'red'))
-        parameters.append(float(patterns.shooting_star(candle) == 'green'))
-        parameters.append(float(patterns.shooting_star(candle) == 'red'))
-        parameters.append(float(patterns.color(candle) == 'green'))
-        parameters.append(float(patterns.color(candle) == 'red'))
+        network.set_input(float(patterns.marubozu(candle) == 'green'))
+        network.set_input(float(patterns.marubozu(candle) == 'red'))
+        network.set_input(float(patterns.hammer(candle) == 'green'))
+        network.set_input(float(patterns.hammer(candle) == 'red'))
+        network.set_input(float(patterns.shooting_star(candle) == 'green'))
+        network.set_input(float(patterns.shooting_star(candle) == 'red'))
+        network.set_input(float(patterns.color(candle) == 'green'))
+        network.set_input(float(patterns.color(candle) == 'red'))
     return parameters
 
 
 print('----------------------------------------')
-print('|           napa simulation            |')
+print('|        napa binary simulation        |')
 print('----------------------------------------')
 
 file_in = '../candles-btc-usd.txt'
@@ -98,17 +73,17 @@ for epoch in range(epochs):
 
     random_networks = []
     for _ in range(random_samples):
-        network = neural.Network(parameters, [], 2)
-        todo.append(network)
-        random_networks.append(network)
-
+        buy_network = binary_network.Net(parameters, [parameters], 1)
+        sell_network = binary_network.Net(parameters, [parameters], 1)
+        todo.append((buy_network, sell_network))
+    ''' random_networks.append(network)
     top = min(top_samples, len(networks))
     for index in range(0, top):
         top_network = networks[index][1]
         for random_network in random_networks:
-            mix = neural.combine_networks(top_network, random_network)
+            mix = binary_network.combine(top_network, random_network)
             todo.append(mix)
-
+    '''
     print('testing', len(todo), 'networks (', epoch, '/', epochs, ')')
     for network in todo:
         start = 0
@@ -119,15 +94,16 @@ for epoch in range(epochs):
         orders = []
         print('funds ${:.2f}'.format(funds), end=' - ', flush=True)
         while end < candle_count:
-            signal = network.predict(get_parameters(candles, start, end))
-            if signal[0] > 0.5 and funds > 20.0:
+            set_parameters(network[0], candles, start, end)
+            set_parameters(network[1], candles, start, end)
+            if network[0].feed()[0].on and funds > 20.0:
                 ticker = candles[end - 1]
                 buy_size = funds * 0.6
                 funds -= buy_size
                 if funds < funds_low:
                     funds_low = funds
                 orders.append(SimOrder(ticker.closing, None, buy_size))
-            elif signal[1] > 0.5:
+            elif network[1].feed()[0].on:
                 ticker = candles[end - 1]
                 for order_to_sell in orders[:]:
                     if ticker.closing > order_to_sell.coin_price:
@@ -149,13 +125,3 @@ for epoch in range(epochs):
 networks.sort(key=itemgetter(0), reverse=True)
 for index in range(3):
     print('top', index + 1, 'funds ${:.2f}'.format(networks[index][0]))
-
-print('writing to file... ', end='', flush=True)
-with open(file_out, "w+") as f:
-    for layer in networks[0][1].layers:
-        for neuron in layer:
-            for synapse in neuron.synapses:
-                f.write(str(synapse.weight) + ' ')
-            f.write('\n')
-        f.write('\n')
-print('done')
