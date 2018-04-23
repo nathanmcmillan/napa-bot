@@ -9,8 +9,8 @@ limit = 22
 
 class GetMacd:
     def __init__(self):
+        self.name = 'macd'
         self.signal = None
-        self.items = None
 
     def random(self):
         self.signal = random.choice(['buy', 'sell'])
@@ -27,30 +27,41 @@ class GetMacd:
     def to_string(self):
         return '{macd, signal: ' + self.signal + '}'
 
+    def copy(self):
+        dna = GetMacd()
+        dna.signal = self.signal
+        return dna
+
 
 class GetTrend:
     def __init__(self):
-        self.periods = 0
+        self.name = 'trend'
+        self.period = 0
         self.pattern = None
-        self.items = None
 
     def random(self):
-        self.periods = random.randint(2, limit)
+        self.period = random.randint(2, limit)
         self.pattern = random_pattern()
         return self
 
     def get(self):
-        return self.pattern == patterns.trend(global_candles, 0, self.periods)
+        return self.pattern == patterns.trend(global_candles, 0, self.period)
 
     def to_string(self):
-        return '{trend, periods: ' + str(self.periods) + ', signal: ' + self.pattern + '}'
+        return '{trend, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def copy(self):
+        dna = GetTrend()
+        dna.period = self.period
+        dna.pattern = self.pattern
+        return dna
 
 
 class GetColor:
     def __init__(self):
+        self.name = 'color'
         self.period = 0
         self.pattern = None
-        self.items = None
 
     def random(self):
         self.period = random.randint(2, limit)
@@ -63,12 +74,18 @@ class GetColor:
     def to_string(self):
         return '{color, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
 
+    def copy(self):
+        dna = GetColor()
+        dna.period = self.period
+        dna.pattern = self.pattern
+        return dna
+
 
 class GetMaru:
     def __init__(self):
+        self.name = 'maru'
         self.period = 0
         self.pattern = None
-        self.items = None
 
     def random(self):
         self.period = random.randint(1, limit)
@@ -81,12 +98,18 @@ class GetMaru:
     def to_string(self):
         return '{maru, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
 
+    def copy(self):
+        dna = GetMaru()
+        dna.period = self.period
+        dna.pattern = self.pattern
+        return dna
+
 
 class GetHammer:
     def __init__(self):
+        self.name = 'hammer'
         self.period = 0
         self.pattern = None
-        self.items = None
 
     def random(self):
         self.period = random.randint(1, limit)
@@ -99,12 +122,18 @@ class GetHammer:
     def to_string(self):
         return '{hammer, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
 
+    def copy(self):
+        dna = GetHammer()
+        dna.period = self.period
+        dna.pattern = self.pattern
+        return dna
+
 
 class GetStar:
     def __init__(self):
+        self.name = 'star'
         self.period = 0
         self.pattern = None
-        self.items = None
 
     def random(self):
         self.period = random.randint(1, limit)
@@ -117,69 +146,11 @@ class GetStar:
     def to_string(self):
         return '{star, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
 
-
-class GateAnd:
-    def __init__(self):
-        self.items = []
-
-    def get(self):
-        for item in self.items:
-            if not item.get():
-                return False
-        return True
-
-    def to_string(self):
-        out = '{and:'
-        for item in self.items:
-            out += item.to_string()
-        return out + '}'
-
-
-class GateOr:
-    def __init__(self):
-        self.items = []
-
-    def get(self):
-        for item in self.items:
-            if item.get():
-                return True
-        return False
-
-    def to_string(self):
-        out = '{or:'
-        for item in self.items:
-            out += item.to_string()
-        return out + '}'
-
-
-class GateXor:
-    def __init__(self):
-        self.items = []
-
-    def get(self):
-        result = False
-        for item in self.items:
-            if item.get():
-                if result:
-                    return False
-                result = True
-        return result
-
-    def to_string(self):
-        out = '{xor:'
-        for item in self.items:
-            out += item.to_string()
-        return out + '}'
-
-
-def random_gate():
-    number = random.randint(0, 2)
-    if number == 0:
-        return GateAnd()
-    if number == 1:
-        return GateOr()
-    if number == 2:
-        return GateXor()
+    def copy(self):
+        dna = GetStar()
+        dna.period = self.period
+        dna.pattern = self.pattern
+        return dna
 
 
 def random_signal():
@@ -202,16 +173,6 @@ def random_pattern():
     return random.choice(['red', 'green'])
 
 
-def random_criteria():
-    gate = random_gate()
-    gate.items.append(random_signal())
-    while bool(random.getrandbits(1)):
-        gate.items.append(random_signal())
-    while bool(random.getrandbits(1)):
-        gate.items.append(random_criteria())
-    return gate
-
-
 def mix_bool(a, b):
     if a and b:
         return True
@@ -220,58 +181,56 @@ def mix_bool(a, b):
     return bool(random.getrandbits(1))
 
 
-def mix_criteria(a, b):
-    if isinstance(a, GateAnd) and isinstance(b, GateAnd):
-        gate = GateAnd()
-    elif isinstance(a, GateOr) and isinstance(b, GateOr):
-        gate = GateOr()
-    elif isinstance(a, GateXor) and isinstance(b, GateXor):
-        gate = GateXor()
-    else:
-        gate = random_gate()
-    if a.items and b.items:
-        size_a = len(a.items)
-        size_b = len(b.items)
-        for index in range(max(size_a, size_b)):
-            if index < size_a and index < size_b:
-                gate.items.append(mix_criteria(a.items[index], b.items[index]))
-            elif index < size_a and bool(random.getrandbits(1)):
-                gate.items.append(a.items[index])
-            elif index < size_b and bool(random.getrandbits(1)):
-                gate.items.append(b.items[index])
-    elif a.items:
-        for item in a.items:
-            if bool(random.getrandbits(1)):
-                gate.items.append(item)
-    elif b.items:
-        for item in b.items:
-            if bool(random.getrandbits(1)):
-                gate.items.append(item)
-    return gate
+def random_criteria(criteria):
+    signal = random_signal()
+    criteria[signal.name] = signal
 
 
-def mix(a, b):
-    now = Genetics()
-    now.buy = mix_criteria(a.buy, b.buy)
-    now.sell = mix_criteria(a.sell, b.sell)
-    now.conditions['prevent_similar'] = mix_bool(a.conditions['prevent_similar'], b.conditions['prevent_similar'])
-    now.conditions['buy_percent'] = (a.conditions['buy_percent'] + b.conditions['buy_percent']) * 0.5
-    now.conditions['sell_percent'] = (a.conditions['sell_percent'] + b.conditions['sell_percent']) * 0.5
-    return now
+def union(criteria, a, b):
+    for key, value in a.items():
+        criteria[key] = value
+    for key, value in b.items():
+        if key not in criteria:
+            criteria[key] = value
+
+
+def intersection(criteria, a, b):
+    for key, value in a.items():
+        if key in b:
+            criteria[key] = value
+
+
+def permutate(a, b):
+    permutations = []
+
+    gene = Genetics()
+    intersection(gene.buy, a.buy, b.buy)
+    intersection(gene.sell, a.sell, b.sell)
+    gene.conditions['prevent_similar'] = mix_bool(a.conditions['prevent_similar'], b.conditions['prevent_similar'])
+    gene.conditions['buy_percent'] = (a.conditions['buy_percent'] + b.conditions['buy_percent']) * 0.5
+    gene.conditions['sell_percent'] = (a.conditions['sell_percent'] + b.conditions['sell_percent']) * 0.5
+    permutations.append(gene)
+
+    gene = Genetics()
+    union(gene.buy, a.buy, b.buy)
+    union(gene.sell, a.sell, b.sell)
+    gene.conditions['prevent_similar'] = mix_bool(a.conditions['prevent_similar'], b.conditions['prevent_similar'])
+    gene.conditions['buy_percent'] = (a.conditions['buy_percent'] + b.conditions['buy_percent']) * 0.5
+    gene.conditions['sell_percent'] = (a.conditions['sell_percent'] + b.conditions['sell_percent']) * 0.5
+    permutations.append(gene)
+
+    return permutations
 
 
 class Genetics:
     def __init__(self):
-        self.buy = None
-        self.sell = None
+        self.buy = {}
+        self.sell = {}
         self.conditions = {}
-        self.conditions['similarity'] = 0.05
-        self.conditions['ema_short'] = 12
-        self.conditions['ema_long'] = 26
 
     def randomize(self):
-        self.buy = random_criteria()
-        self.sell = random_criteria()
+        random_criteria(self.buy)
+        random_criteria(self.sell)
         self.conditions['prevent_similar'] = bool(random.getrandbits(1))
         self.conditions['buy_percent'] = 0.1 + random.random() * 0.9
         self.conditions['sell_percent'] = random.random() * 1.1
@@ -279,8 +238,14 @@ class Genetics:
     def signal(self, candles):
         global global_candles
         global_candles = candles
-        if self.buy.get():
+        success = True
+        for _, criteria in self.buy.items():
+            if not criteria.get():
+                success = False
+                break
+        if success:
             return 'buy'
-        if self.sell.get():
-            return 'sell'
-        return ''
+        for _, criteria in self.sell.items():
+            if not criteria.get():
+                return ''
+        return 'sell'

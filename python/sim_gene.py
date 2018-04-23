@@ -10,8 +10,6 @@ from trends import ConvergeDiverge
 from genetics import Genetics
 from operator import itemgetter
 
-debug = False
-
 
 class SimOrder:
     def __init__(self, coin_price, size, usd):
@@ -25,7 +23,7 @@ class SimOrder:
 
 
 print('----------------------------------------')
-print('|             napa breed               |')
+print('|       napa genetic simulation        |')
 print('----------------------------------------')
 
 file_in = '../candles-btc-usd.txt'
@@ -36,10 +34,11 @@ with open(file_in, 'r') as open_file:
         historical_candles.append(candle)
 historial_candle_count = len(historical_candles)
 
-gene_epochs = 25
+gene_epochs = 3
 gene_random_limit = 10
 gene_top_mix_limit = 10
 gene_history_limit = 1000
+cooldown = 1.0
 
 genetic_list = []
 for _ in range(gene_epochs):
@@ -56,9 +55,9 @@ for _ in range(gene_epochs):
     for index in range(0, top_len):
         top_gene = genetic_list[index][1]
         for random_gene in genetic_random:
-            genetic_todo.append(genetics.mix(top_gene, random_gene))
+            genetic_todo.extend(genetics.permutate(top_gene, random_gene))
         for jindex in range(index + 1, top_len):
-            genetic_todo.append(genetics.mix(top_gene, genetic_list[jindex][1]))
+            genetic_todo.extend(genetics.permutate(top_gene, genetic_list[jindex][1]))
     print('trying', len(genetic_todo), 'combinations')
     for genes in genetic_todo:
         orders = []
@@ -67,10 +66,6 @@ for _ in range(gene_epochs):
         funds = 1000.0
         print('funds ${:.2f}'.format(funds), end=' - ', flush=True)
         while end < historial_candle_count:
-            if historical_candles[end].time < 1513515600:
-                start += 1
-                end += 1
-                continue
             candles = historical_candles[start:end]
             signal = genes.signal(candles)
             ticker_price = candles[-1].closing
@@ -79,26 +74,18 @@ for _ in range(gene_epochs):
                     continue_buy = True
                     if genes.conditions['prevent_similar']:
                         for existing_order in orders:
-                            if abs(existing_order.coin_price - ticker_price) / ticker_price < genes.conditions['similarity']:
-                                if debug:
-                                    print('not buying due to existing order bought at ${}'.format(ticker_price))
+                            if abs(existing_order.coin_price - ticker_price) / ticker_price < 0.05:
                                 continue_buy = False
                                 break
                     if continue_buy:
                         buy_size = funds * genes.conditions['buy_percent']
                         funds -= buy_size
                         orders.append(SimOrder(candles[-1].closing, None, buy_size))
-                        if debug:
-                            print('buy | {} | coin price ${:.2f} using ${:.2f}'.format(candles[-1].time, candles[-1].closing, buy_size))
-                elif debug:
-                    print('not enough funds ${:.2f}'.format(funds))
             elif signal == 'sell':
                 for order_to_sell in orders[:]:
                     if ticker_price > order_to_sell.coin_price * genes.conditions['sell_percent']:
                         funds += ticker_price * order_to_sell.size
                         orders.remove(order_to_sell)
-                        if debug:
-                            print('sell | {} | ${:.2f} -> ${:.2f} | funds ${:.2f}'.format(candles[-1].time, order_to_sell.coin_price, ticker_price, funds))
             start += 1
             end += 1
         worth = 0.0
@@ -107,13 +94,37 @@ for _ in range(gene_epochs):
         worth += funds
         print('total ${:.2f}'.format(worth))
         genetic_list.append((worth, genes))
+    time.sleep(cooldown)
 
 genetic_list.sort(key=itemgetter(0), reverse=True)
 for index in range(3):
     print('----------------------------------------')
     print('top', index + 1)
     top = genetic_list[index]
-    print(top[1].buy.to_string())
-    print(top[1].sell.to_string())
-    print(top[1].conditions)
-    print('funds ${:.2f}'.format(top[0]))
+    print('buy: ', end='')
+    for _, criteria in top[1].buy.items():
+        print(criteria.to_string(), sep='', end=' ')
+    print()
+    print('sell: ', end='')
+    for _, criteria in top[1].sell.items():
+        print(criteria.to_string(), sep='', end=' ')
+    print()
+    print('conditions:', top[1].conditions)
+    print('worth ${:.2f}'.format(top[0]))
+'''
+if candle.time < 1513515600:
+    continue
+
+buy: {trend, period: 5, signal: red}
+conditions: {'prevent_similar': False, 'buy_percent': 0.5447577575919434, 'sell_percent': 0.7684866533373004}
+worth $1898.11
+
+------------------
+FULL
+
+top 1
+buy: {trend, period: 12, signal: green}
+sell:
+conditions: {'prevent_similar': False, 'buy_percent': 0.846017712025436, 'sell_percent': 0.5868770873551986}
+worth $136671.96
+'''
