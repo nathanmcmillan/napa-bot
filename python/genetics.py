@@ -2,9 +2,9 @@ import random
 import patterns
 from trends import ConvergeDiverge
 
-ema_short = 12
-ema_long = 26
-limit = 22
+candles = None
+start = 0
+end = 0
 
 
 class GetMacd:
@@ -17,15 +17,16 @@ class GetMacd:
         return self
 
     def get(self):
-        macd = ConvergeDiverge(ema_short, ema_long, global_candles[0].closing)
-        candle_count = len(global_candles)
-        for index in range(1, candle_count):
-            current_candle = global_candles[index]
-            macd.update(current_candle.closing)
+        macd = ConvergeDiverge(12, 26, candles[start].closing)
+        for index in range(start + 1, end):
+            macd.update(candles[index].closing)
         return self.signal == macd.signal
 
     def to_string(self):
         return '{macd, signal: ' + self.signal + '}'
+
+    def key(self):
+        return (self.name, self.signal)
 
     def copy(self):
         dna = GetMacd()
@@ -40,20 +41,79 @@ class GetTrend:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(2, limit)
+        self.period = random.randint(1, 20)
         self.pattern = random_pattern()
         return self
 
     def get(self):
-        return self.pattern == patterns.trend(global_candles, 0, self.period)
+        return self.pattern == patterns.trend(candles, end - self.period, end)
 
     def to_string(self):
         return '{trend, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def key(self):
+        return (self.name, self.period, self.pattern)
 
     def copy(self):
         dna = GetTrend()
         dna.period = self.period
         dna.pattern = self.pattern
+        return dna
+
+
+class GetVolume:
+    def __init__(self):
+        self.name = 'volume'
+        self.period = 0
+        self.pattern = None
+
+    def random(self):
+        self.period = random.randint(1, 20)
+        self.pattern = random_pattern()
+        return self
+
+    def get(self):
+        return self.pattern == patterns.volume_trend(candles, end - self.period, end)
+
+    def to_string(self):
+        return '{volume, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def key(self):
+        return (self.name, self.period, self.pattern)
+
+    def copy(self):
+        dna = GetVolume()
+        dna.period = self.period
+        dna.pattern = self.pattern
+        return dna
+
+
+class GetChange:
+    def __init__(self):
+        self.name = 'percent'
+        self.period = 0
+        self.percent = 0
+        self.float_percent = 0.0
+
+    def random(self):
+        self.period = random.randint(1, 20)
+        self.percent = random.randint(1, 500)
+        self.float_percent = float(self.percent) / 1000.0
+        return self
+
+    def get(self):
+        return patterns.change(candles, end - self.period, end) > self.float_percent
+
+    def to_string(self):
+        return '{change, period: ' + str(self.period) + ', percent: ' + str(self.percent) + '}'
+
+    def key(self):
+        return (self.name, self.period, self.percent)
+
+    def copy(self):
+        dna = GetChange()
+        dna.period = self.period
+        dna.percent = self.percent
         return dna
 
 
@@ -64,15 +124,18 @@ class GetColor:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(2, limit)
+        self.period = random.randint(0, 20)
         self.pattern = random_pattern()
         return self
 
     def get(self):
-        return self.pattern == patterns.color(global_candles[-self.period])
+        return self.pattern == patterns.color(candles[end - self.period])
 
     def to_string(self):
         return '{color, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def key(self):
+        return (self.name, self.period, self.pattern)
 
     def copy(self):
         dna = GetColor()
@@ -88,15 +151,18 @@ class GetMaru:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(1, limit)
+        self.period = random.randint(0, 20)
         self.pattern = random_pattern()
         return self
 
     def get(self):
-        return self.pattern == patterns.marubozu(global_candles[-self.period])
+        return self.pattern == patterns.marubozu(candles[end - self.period])
 
     def to_string(self):
         return '{maru, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def key(self):
+        return (self.name, self.period, self.pattern)
 
     def copy(self):
         dna = GetMaru()
@@ -112,15 +178,18 @@ class GetHammer:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(1, limit)
+        self.period = random.randint(0, 20)
         self.pattern = random_pattern()
         return self
 
     def get(self):
-        return self.pattern == patterns.hammer(global_candles[-self.period])
+        return self.pattern == patterns.hammer(candles[end - self.period])
 
     def to_string(self):
         return '{hammer, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def key(self):
+        return (self.name, self.period, self.pattern)
 
     def copy(self):
         dna = GetHammer()
@@ -136,15 +205,18 @@ class GetStar:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(1, limit)
+        self.period = random.randint(0, 20)
         self.pattern = random_pattern()
         return self
 
     def get(self):
-        return self.pattern == patterns.shooting_star(global_candles[-self.period])
+        return self.pattern == patterns.shooting_star(candles[end - self.period])
 
     def to_string(self):
         return '{star, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
+
+    def key(self):
+        return (self.name, self.period, self.pattern)
 
     def copy(self):
         dna = GetStar()
@@ -154,7 +226,7 @@ class GetStar:
 
 
 def random_signal():
-    number = random.randint(0, 5)
+    number = random.randint(0, 7)
     if number == 0:
         return GetMacd().random()
     if number == 1:
@@ -167,37 +239,60 @@ def random_signal():
         return GetHammer().random()
     if number == 5:
         return GetStar().random()
+    if number == 6:
+        return GetChange().random()
+    if number == 7:
+        return GetVolume().random()
 
 
 def random_pattern():
     return random.choice(['red', 'green'])
 
 
-def mix_bool(a, b):
-    if a and b:
-        return True
-    if not a and not b:
-        return False
-    return bool(random.getrandbits(1))
-
-
 def random_criteria(criteria):
     signal = random_signal()
-    criteria[signal.name] = signal
+    criteria[signal.key()] = signal
+
+
+def equals(gene_a, gene_b):
+    for key in gene_a.buy:
+        if key not in gene_b.buy:
+            return False
+    for key in gene_b.buy:
+        if key not in gene_a.buy:
+            return False
+    for key in gene_a.sell:
+        if key not in gene_b.sell:
+            return False
+    for key in gene_b.sell:
+        if key not in gene_a.sell:
+            return False
+    return True
 
 
 def union(criteria, a, b):
     for key, value in a.items():
         criteria[key] = value
     for key, value in b.items():
-        if key not in criteria:
-            criteria[key] = value
+        criteria[key] = value
 
 
 def intersection(criteria, a, b):
     for key, value in a.items():
         if key in b:
             criteria[key] = value
+        else:
+            for key2, value2 in b.items():
+                if key[0] == key2[0]:
+                    if bool(random.getrandbits(1)):
+                        criteria[key] = value
+                    else:
+                        criteria[key2] = value2
+
+
+def copy_criteria(criteria, a):
+    for key, value in a.items():
+        criteria[key] = value
 
 
 def permutate(a, b):
@@ -205,21 +300,54 @@ def permutate(a, b):
 
     gene = Genetics()
     intersection(gene.buy, a.buy, b.buy)
-    intersection(gene.sell, a.sell, b.sell)
-    gene.conditions['prevent_similar'] = mix_bool(a.conditions['prevent_similar'], b.conditions['prevent_similar'])
-    gene.conditions['buy_percent'] = (a.conditions['buy_percent'] + b.conditions['buy_percent']) * 0.5
-    gene.conditions['sell_percent'] = (a.conditions['sell_percent'] + b.conditions['sell_percent']) * 0.5
-    permutations.append(gene)
+    if gene.buy:
+        intersection(gene.sell, a.sell, b.sell)
+        gene.conditions['fund_percent'] = (a.conditions['fund_percent'] + b.conditions['fund_percent']) * 0.5
+        gene.conditions['min_sell'] = (a.conditions['min_sell'] + b.conditions['min_sell']) * 0.5
+        permutations.append(gene)
 
     gene = Genetics()
     union(gene.buy, a.buy, b.buy)
     union(gene.sell, a.sell, b.sell)
-    gene.conditions['prevent_similar'] = mix_bool(a.conditions['prevent_similar'], b.conditions['prevent_similar'])
-    gene.conditions['buy_percent'] = (a.conditions['buy_percent'] + b.conditions['buy_percent']) * 0.5
-    gene.conditions['sell_percent'] = (a.conditions['sell_percent'] + b.conditions['sell_percent']) * 0.5
+    gene.conditions['fund_percent'] = (a.conditions['fund_percent'] + b.conditions['fund_percent']) * 0.5
+    gene.conditions['min_sell'] = (a.conditions['min_sell'] + b.conditions['min_sell']) * 0.5
     permutations.append(gene)
 
     return permutations
+
+
+def mutate(a):
+    mutations = []
+
+    gene = Genetics()
+    copy_criteria(gene.buy, a.buy)
+    copy_criteria(gene.sell, a.sell)
+    gene.conditions['fund_percent'] = min(1.0, a.conditions['fund_percent'] + 0.1)
+    gene.conditions['min_sell'] = a.conditions['min_sell']
+    mutations.append(gene)
+
+    gene = Genetics()
+    copy_criteria(gene.buy, a.buy)
+    copy_criteria(gene.sell, a.sell)
+    gene.conditions['fund_percent'] = a.conditions['fund_percent']
+    gene.conditions['min_sell'] = min(1.0, a.conditions['min_sell'] + 0.1)
+    mutations.append(gene)
+
+    gene = Genetics()
+    copy_criteria(gene.buy, a.buy)
+    copy_criteria(gene.sell, a.sell)
+    gene.conditions['fund_percent'] = max(0.0, a.conditions['fund_percent'] - 0.1)
+    gene.conditions['min_sell'] = a.conditions['min_sell']
+    mutations.append(gene)
+
+    gene = Genetics()
+    copy_criteria(gene.buy, a.buy)
+    copy_criteria(gene.sell, a.sell)
+    gene.conditions['fund_percent'] = a.conditions['fund_percent']
+    gene.conditions['min_sell'] = max(0.0, a.conditions['min_sell'] - 0.1)
+    mutations.append(gene)
+
+    return mutations
 
 
 class Genetics:
@@ -231,13 +359,16 @@ class Genetics:
     def randomize(self):
         random_criteria(self.buy)
         random_criteria(self.sell)
-        self.conditions['prevent_similar'] = bool(random.getrandbits(1))
-        self.conditions['buy_percent'] = 0.1 + random.random() * 0.9
-        self.conditions['sell_percent'] = random.random() * 1.1
+        self.conditions['fund_percent'] = 0.1 + random.random() * 0.9
+        self.conditions['min_sell'] = random.random() * 1.1
 
-    def signal(self, candles):
-        global global_candles
-        global_candles = candles
+    def signal(self, in_candles, in_start, in_end):
+        global candles
+        global start
+        global end
+        candles = in_candles
+        start = in_start
+        end = in_end
         success = True
         for _, criteria in self.buy.items():
             if not criteria.get():

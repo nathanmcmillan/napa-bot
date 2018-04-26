@@ -37,6 +37,16 @@ def trend(candles, start, end):
     return 'red'
 
 
+def change(candles, start, end):
+    return abs(candles[end].closing - candles[start].closing) / candles[start].closing
+
+
+def volume_trend(candles, start, end):
+    if candles[end].volume > candles[start].volume:
+        return 'green'
+    return 'red'
+
+
 def color(candle):
     if candle.closing > candle.open:
         return 'green'
