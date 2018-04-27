@@ -1,6 +1,8 @@
 from rest import request, private_request
+import websocket
 
 SITE = 'api.gdax.com'
+FEED_SITE = 'wss://ws-feed.gdax.com'
 
 
 class Ticker:
@@ -125,3 +127,9 @@ def get_ticker(product):
     if status != 200 or not isinstance(read, dict):
         return read, status
     return Ticker(read), status
+
+
+def get_feed(products, channels):
+    feed = websocket.create_connection(FEED_SITE)
+    params = {'type': 'subscribe', 'product_ids': products, 'channels': channels}
+    feed.send(json.dumps(params))

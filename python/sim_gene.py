@@ -6,6 +6,7 @@ import os.path
 import patterns
 import genetics
 import simulation
+from genetics import GetTrend
 from gdax import Candle
 from trends import ConvergeDiverge
 from genetics import Genetics
@@ -32,16 +33,16 @@ with open(file_in, 'r') as open_file:
         candles_all.append(candle)
         if candle.time < 1513515600:
             candles_bull.append(candle)
-        else:
-            candles_bear.append(candle)
+        # elif candle.time % 86400 == 0:
+        #    candles_bear.append(candle)
 candles = candles_bear
 
 fees = 0.005
 funds = 1000.0
 intervals = 22
 
-epochs = 10
-random_limit = 10
+epochs = 15
+random_limit = 50
 top_mix_limit = 10
 cooldown = 2.0
 
@@ -49,13 +50,6 @@ bear_list = []
 bull_list = []
 genetic_list = []
 for epoch in range(epochs):
-
-    if epoch % 2 == 0:
-        candles = candles_bear
-        top_list = bear_list
-    else:
-        candles = candles_bull
-        top_list = bull_list
 
     genetic_random = []
     for _ in range(random_limit):
@@ -72,7 +66,6 @@ for epoch in range(epochs):
             todo.extend(genetics.permutate(top_gene, random_gene))
 
     todo_len = len(todo)
-    print('looking at', todo_len, 'todo')
     index = 0
     while index < todo_len:
         jindex = index + 1
@@ -104,7 +97,6 @@ for epoch in range(epochs):
             genetic_list.append(result)
 
     genetic_len = len(genetic_list)
-    print('looking at', genetic_len, 'genes')
     index = 0
     while index < genetic_len:
         jindex = index + 1
@@ -125,7 +117,27 @@ for epoch in range(epochs):
 print('----------------------------------------')
 genes = genetic_list[0][0]
 result = simulation.round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, True)
+'''todo = []
 
+gene = Genetics()
+dna = GetTrend()
+dna.period = 2
+dna.pattern = 'green'
+gene.buy[dna.key()] = dna
+gene.conditions['fund_percent'] = 0.957
+gene.conditions['min_sell'] = -100.0
+todo.append(gene)
+
+genetic_list = []
+for genes in todo:
+    result = simulation.round(candles, intervals, funds, fees, genes.signal, genes.conditions, True)
+    result.insert(0, genes)
+    genetic_list.append(result)
+
+genetic_list.sort(key=itemgetter(1), reverse=True)
+
+for index in range(5):
+'''
 for index in range(5):
     print('----------------------------------------')
     print('top', index + 1)
@@ -140,5 +152,7 @@ for index in range(5):
     print()
     print('conditions:', top[0].conditions)
     print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,}'.format(top[1], top[2], top[3], top[4], top[5], top[6]))
+    simulation.round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, False)
+
 print('----------------------------------------')
 print('candle count {:,}'.format(len(candles)))

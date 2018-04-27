@@ -20,31 +20,36 @@ def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
     index = intervals
     while index < candle_count:
         signal = algorithm(candles, index - intervals, index)
-        ticker_price = candles[index].closing
         if signal == 'buy':
             usd = funds * conditions['fund_percent']
             if usd > 10.0:
+                ticker_price = candles[index].closing
                 orders.append(SimOrder(ticker_price, None, usd))
                 usd *= (1.0 + fees)
                 funds -= usd
-                if funds < low:
-                    low = funds
+                coins += orders[-1].size
                 buys += 1
+                total = funds + coins * ticker_price
+                if total < low:
+                    low = total
                 if print_trades:
-                    coins += orders[-1].size
                     print('time - {} - ticker ${:,.2f} - spent ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, usd, funds, coins))
         elif signal == 'sell':
+            ticker_price = candles[index].closing
             for order_to_sell in orders[:]:
-                if ticker_price > order_to_sell.coin_price * conditions['min_sell']:
+                change = (ticker_price - order_to_sell.coin_price) / order_to_sell.coin_price
+                if change > conditions['min_sell']:
                     orders.remove(order_to_sell)
                     usd = (ticker_price * order_to_sell.size) * (1.0 - fees)
                     funds += usd
-                    if funds > high:
-                        high = funds
+                    coins -= order_to_sell.size
                     sells += 1
+                    total = funds + coins * ticker_price
+                    if total > high:
+                        high = total
                     if print_trades:
-                        coins -= order_to_sell.size
-                        print('time - {} - ticker ${:,.2f} - made ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, usd, funds, coins))
+                        profit = usd - order_to_sell.usd * (1.0 + fees)
+                        print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))
         index += 1
     total = 0.0
     coins = 0.0

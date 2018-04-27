@@ -124,7 +124,7 @@ class GetColor:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(0, 20)
+        self.period = random.randint(0, 6)
         self.pattern = random_pattern()
         return self
 
@@ -151,7 +151,7 @@ class GetMaru:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(0, 20)
+        self.period = random.randint(0, 6)
         self.pattern = random_pattern()
         return self
 
@@ -178,7 +178,7 @@ class GetHammer:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(0, 20)
+        self.period = random.randint(0, 6)
         self.pattern = random_pattern()
         return self
 
@@ -205,7 +205,7 @@ class GetStar:
         self.pattern = None
 
     def random(self):
-        self.period = random.randint(0, 20)
+        self.period = random.randint(0, 6)
         self.pattern = random_pattern()
         return self
 
@@ -303,14 +303,14 @@ def permutate(a, b):
     if gene.buy:
         intersection(gene.sell, a.sell, b.sell)
         gene.conditions['fund_percent'] = (a.conditions['fund_percent'] + b.conditions['fund_percent']) * 0.5
-        gene.conditions['min_sell'] = (a.conditions['min_sell'] + b.conditions['min_sell']) * 0.5
+        # gene.conditions['min_sell'] = (a.conditions['min_sell'] + b.conditions['min_sell']) * 0.5
         permutations.append(gene)
 
     gene = Genetics()
     union(gene.buy, a.buy, b.buy)
     union(gene.sell, a.sell, b.sell)
     gene.conditions['fund_percent'] = (a.conditions['fund_percent'] + b.conditions['fund_percent']) * 0.5
-    gene.conditions['min_sell'] = (a.conditions['min_sell'] + b.conditions['min_sell']) * 0.5
+    # gene.conditions['min_sell'] = (a.conditions['min_sell'] + b.conditions['min_sell']) * 0.5
     permutations.append(gene)
 
     return permutations
@@ -322,29 +322,29 @@ def mutate(a):
     gene = Genetics()
     copy_criteria(gene.buy, a.buy)
     copy_criteria(gene.sell, a.sell)
-    gene.conditions['fund_percent'] = min(1.0, a.conditions['fund_percent'] + 0.1)
-    gene.conditions['min_sell'] = a.conditions['min_sell']
+    gene.conditions['fund_percent'] = min(1.0, a.conditions['fund_percent'] + 0.01)
+    # gene.conditions['min_sell'] = a.conditions['min_sell']
+    mutations.append(gene)
+
+    gene = Genetics()
+    copy_criteria(gene.buy, a.buy)
+    copy_criteria(gene.sell, a.sell)
+    gene.conditions['fund_percent'] = max(0.2, a.conditions['fund_percent'] - 0.01)
+    # gene.conditions['min_sell'] = a.conditions['min_sell']
     mutations.append(gene)
 
     gene = Genetics()
     copy_criteria(gene.buy, a.buy)
     copy_criteria(gene.sell, a.sell)
     gene.conditions['fund_percent'] = a.conditions['fund_percent']
-    gene.conditions['min_sell'] = min(1.0, a.conditions['min_sell'] + 0.1)
-    mutations.append(gene)
-
-    gene = Genetics()
-    copy_criteria(gene.buy, a.buy)
-    copy_criteria(gene.sell, a.sell)
-    gene.conditions['fund_percent'] = max(0.0, a.conditions['fund_percent'] - 0.1)
-    gene.conditions['min_sell'] = a.conditions['min_sell']
+    # gene.conditions['min_sell'] = min(1.1, a.conditions['min_sell'] + 0.01)
     mutations.append(gene)
 
     gene = Genetics()
     copy_criteria(gene.buy, a.buy)
     copy_criteria(gene.sell, a.sell)
     gene.conditions['fund_percent'] = a.conditions['fund_percent']
-    gene.conditions['min_sell'] = max(0.0, a.conditions['min_sell'] - 0.1)
+    # gene.conditions['min_sell'] = max(-1.0, a.conditions['min_sell'] - 0.01)
     mutations.append(gene)
 
     return mutations
@@ -355,12 +355,13 @@ class Genetics:
         self.buy = {}
         self.sell = {}
         self.conditions = {}
+        self.conditions['min_sell'] = 1.01
 
     def randomize(self):
         random_criteria(self.buy)
         random_criteria(self.sell)
-        self.conditions['fund_percent'] = 0.1 + random.random() * 0.9
-        self.conditions['min_sell'] = random.random() * 1.1
+        self.conditions['fund_percent'] = 0.2 + random.random() * 0.8
+        # self.conditions['min_sell'] = 1.1 * random.random() - 1.0
 
     def signal(self, in_candles, in_start, in_end):
         global candles

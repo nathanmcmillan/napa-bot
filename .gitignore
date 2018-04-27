@@ -3,3 +3,6 @@
 *.db
 *.exe
 __pycache__/
+
+!BTC-USD-300.txt
+!BTC-USD-3600.txt
