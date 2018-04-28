@@ -6,6 +6,7 @@ import os.path
 import patterns
 import genetics
 import simulation
+import random
 from genetics import GetTrend
 from gdax import Candle
 from trends import ConvergeDiverge
@@ -27,21 +28,24 @@ file_in = '../BTC-USD-3600.txt'
 candles_bull = []
 candles_bear = []
 candles_all = []
+candles_hours = []
 with open(file_in, 'r') as open_file:
     for line in open_file:
         candle = Candle(line.split())
         candles_all.append(candle)
         if candle.time < 1513515600:
             candles_bull.append(candle)
-        # elif candle.time % 86400 == 0:
-        #    candles_bear.append(candle)
+        else:
+            candles_bear.append(candle)
+        if candle.time % 86400 == 0:
+            candles_hours.append(candle)
 candles = candles_bear
 
-fees = 0.005
+fees = 0.003
 funds = 1000.0
 intervals = 22
 
-epochs = 15
+epochs = 50
 random_limit = 50
 top_mix_limit = 10
 cooldown = 2.0
@@ -59,11 +63,15 @@ for epoch in range(epochs):
 
     todo = []
     todo.extend(genetic_random)
-    top_len = min(top_mix_limit, len(genetic_list))
+    '''top_len = min(top_mix_limit, len(genetic_list))
     for index in range(0, top_len):
         top_gene = genetic_list[index][0]
         for random_gene in genetic_random:
-            todo.extend(genetics.permutate(top_gene, random_gene))
+            todo.extend(genetics.permutate(top_gene, random_gene))'''
+    top_len = min(top_mix_limit, len(genetic_list))
+    for random_gene in genetic_random:
+        for index in range(0, top_len):
+            todo.extend(genetics.permutate(random.choice(genetic_list)[0], random_gene))
 
     todo_len = len(todo)
     index = 0
@@ -90,7 +98,7 @@ for epoch in range(epochs):
     time.sleep(cooldown)
     for genes in todo:
         result = simulation.round(candles, intervals, funds, fees, genes.signal, genes.conditions, False)
-        if result[4] > 0:
+        if result[0] > funds:
             if result[5] == 0:
                 genes.sell.clear()
             result.insert(0, genes)
@@ -152,6 +160,7 @@ for index in range(5):
     print()
     print('conditions:', top[0].conditions)
     print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,}'.format(top[1], top[2], top[3], top[4], top[5], top[6]))
+    print('entire run - ', end='')
     simulation.round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, False)
 
 print('----------------------------------------')

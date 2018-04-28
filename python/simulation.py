@@ -19,7 +19,7 @@ def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
     sells = 0
     index = intervals
     while index < candle_count:
-        signal = algorithm(candles, index - intervals, index)
+        signal = algorithm(candles, index)
         if signal == 'buy':
             usd = funds * conditions['fund_percent']
             if usd > 10.0:

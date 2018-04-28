@@ -3,8 +3,7 @@ import patterns
 from trends import ConvergeDiverge
 
 candles = None
-start = 0
-end = 0
+index = 0
 
 
 class GetMacd:
@@ -17,9 +16,9 @@ class GetMacd:
         return self
 
     def get(self):
-        macd = ConvergeDiverge(12, 26, candles[start].closing)
-        for index in range(start + 1, end):
-            macd.update(candles[index].closing)
+        macd = ConvergeDiverge(12, 26, candles[index - 21].closing)
+        for jindex in range(index - 20, index):
+            macd.update(candles[jindex].closing)
         return self.signal == macd.signal
 
     def to_string(self):
@@ -46,7 +45,7 @@ class GetTrend:
         return self
 
     def get(self):
-        return self.pattern == patterns.trend(candles, end - self.period, end)
+        return self.pattern == patterns.trend(candles, index - self.period, index)
 
     def to_string(self):
         return '{trend, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
@@ -73,7 +72,7 @@ class GetVolume:
         return self
 
     def get(self):
-        return self.pattern == patterns.volume_trend(candles, end - self.period, end)
+        return self.pattern == patterns.volume_trend(candles, index - self.period, index)
 
     def to_string(self):
         return '{volume, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
@@ -102,7 +101,7 @@ class GetChange:
         return self
 
     def get(self):
-        return patterns.change(candles, end - self.period, end) > self.float_percent
+        return patterns.change(candles, index - self.period, index) > self.float_percent
 
     def to_string(self):
         return '{change, period: ' + str(self.period) + ', percent: ' + str(self.percent) + '}'
@@ -129,7 +128,7 @@ class GetColor:
         return self
 
     def get(self):
-        return self.pattern == patterns.color(candles[end - self.period])
+        return self.pattern == patterns.color(candles[index - self.period])
 
     def to_string(self):
         return '{color, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
@@ -156,7 +155,7 @@ class GetMaru:
         return self
 
     def get(self):
-        return self.pattern == patterns.marubozu(candles[end - self.period])
+        return self.pattern == patterns.marubozu(candles[index - self.period])
 
     def to_string(self):
         return '{maru, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
@@ -183,7 +182,7 @@ class GetHammer:
         return self
 
     def get(self):
-        return self.pattern == patterns.hammer(candles[end - self.period])
+        return self.pattern == patterns.hammer(candles[index - self.period])
 
     def to_string(self):
         return '{hammer, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
@@ -210,7 +209,7 @@ class GetStar:
         return self
 
     def get(self):
-        return self.pattern == patterns.shooting_star(candles[end - self.period])
+        return self.pattern == patterns.shooting_star(candles[index - self.period])
 
     def to_string(self):
         return '{star, period: ' + str(self.period) + ', signal: ' + self.pattern + '}'
@@ -225,8 +224,64 @@ class GetStar:
         return dna
 
 
+class GetSupport:
+    def __init__(self):
+        self.name = 'support'
+        self.period = 0
+
+    def random(self):
+        self.period = random.randint(0, 20)
+        return self
+
+    def get(self):
+        low = candles[index].closing
+        for jindex in range(index - self.period, index - 1):
+            if candles[jindex].closing < low:
+                low = candles[jindex].closing
+        return candles[index].closing > low
+
+    def to_string(self):
+        return '{support, period: ' + str(self.period) + '}'
+
+    def key(self):
+        return (self.name, self.period)
+
+    def copy(self):
+        dna = GetSupport()
+        dna.period = self.period
+        return dna
+
+
+class GetResistance:
+    def __init__(self):
+        self.name = 'resistance'
+        self.period = 0
+
+    def random(self):
+        self.period = random.randint(0, 20)
+        return self
+
+    def get(self):
+        high = candles[index].closing
+        for jindex in range(index - self.period, index - 1):
+            if candles[jindex].closing > high:
+                high = candles[jindex].closing
+        return candles[index].closing < high
+
+    def to_string(self):
+        return '{resistance, period: ' + str(self.period) + '}'
+
+    def key(self):
+        return (self.name, self.period)
+
+    def copy(self):
+        dna = GetResistance()
+        dna.period = self.period
+        return dna
+
+
 def random_signal():
-    number = random.randint(0, 7)
+    number = random.randint(0, 9)
     if number == 0:
         return GetMacd().random()
     if number == 1:
@@ -243,6 +298,10 @@ def random_signal():
         return GetChange().random()
     if number == 7:
         return GetVolume().random()
+    if number == 8:
+        return GetSupport().random()
+    if number == 9:
+        return GetResistance().random()
 
 
 def random_pattern():
@@ -252,6 +311,9 @@ def random_pattern():
 def random_criteria(criteria):
     signal = random_signal()
     criteria[signal.key()] = signal
+    while bool(random.getrandbits(1)):
+        signal = random_signal()
+        criteria[signal.key()] = signal
 
 
 def equals(gene_a, gene_b):
@@ -355,7 +417,7 @@ class Genetics:
         self.buy = {}
         self.sell = {}
         self.conditions = {}
-        self.conditions['min_sell'] = 1.01
+        self.conditions['min_sell'] = 1.006
 
     def randomize(self):
         random_criteria(self.buy)
@@ -363,13 +425,11 @@ class Genetics:
         self.conditions['fund_percent'] = 0.2 + random.random() * 0.8
         # self.conditions['min_sell'] = 1.1 * random.random() - 1.0
 
-    def signal(self, in_candles, in_start, in_end):
+    def signal(self, in_candles, in_index):
         global candles
-        global start
-        global end
+        global index
         candles = in_candles
-        start = in_start
-        end = in_end
+        index = in_index
         success = True
         for _, criteria in self.buy.items():
             if not criteria.get():
