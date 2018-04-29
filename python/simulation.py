@@ -12,6 +12,7 @@ class SimOrder:
 def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
     candle_count = len(candles)
     orders = []
+    limits = []
     low = funds
     high = funds
     coins = 0.0
@@ -19,11 +20,18 @@ def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
     sells = 0
     index = intervals
     while index < candle_count:
+        ticker_price = candles[index].closing
+        for limit_order in limits[:]:
+            if limit_order.is_buy:
+                if ticker_price < limit_order.coin_price:
+                    orders.append(SimOrder(limit_order.coin_price, None, limit_order.usd))    
+            else:
+                if ticker_price > limit_order.price:
+                    orders.append(SimOrder(limit_order.coin_price, None, limit_order.usd))
         signal = algorithm(candles, index)
         if signal == 'buy':
             usd = funds * conditions['fund_percent']
             if usd > 10.0:
-                ticker_price = candles[index].closing
                 orders.append(SimOrder(ticker_price, None, usd))
                 usd *= (1.0 + fees)
                 funds -= usd
@@ -35,7 +43,6 @@ def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
                 if print_trades:
                     print('time - {} - ticker ${:,.2f} - spent ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, usd, funds, coins))
         elif signal == 'sell':
-            ticker_price = candles[index].closing
             for order_to_sell in orders[:]:
                 change = (ticker_price - order_to_sell.coin_price) / order_to_sell.coin_price
                 if change > conditions['min_sell']:

@@ -4,5 +4,6 @@
 *.exe
 __pycache__/
 
+!simulations.txt
 !BTC-USD-300.txt
 !BTC-USD-3600.txt

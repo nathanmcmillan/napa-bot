@@ -1,11 +1,6 @@
 from rest import request, private_request
-import websocket
-import json
-import time
-from threading import Thread
 
 SITE = 'api.gdax.com'
-FEED_SITE = 'wss://ws-feed.gdax.com'
 
 
 class Ticker:
@@ -130,38 +125,3 @@ def get_ticker(product):
     if status != 200 or not isinstance(read, dict):
         return read, status
     return Ticker(read), status
-
-
-def feed_message(feed, message):
-    print(message)
-    feed.close()
-
-
-def feed_close(feed):
-    print('socket closed')
-
-
-def feed_open(feed):
-    products = ['BTC-USD', 'ETH-USD']
-    channels = ['ticker']
-    params = {'type': 'subscribe', 'product_ids': products, 'channels': channels}
-    feed.send(json.dumps(params))
-
-
-def run_feed():
-    feed = websocket.WebSocketApp(FEED_SITE, on_message=feed_message, on_close=feed_close)
-    feed.on_open = feed_open
-    feed.run_forever()
-    print('thread shutdown')
-
-
-def get_feed():
-    t = Thread(target=run_feed)
-    t.start()
-    return t
-
-
-if __name__ == '__main__':
-    feed_thread = get_feed()
-    print('hello feed')
-    feed_thread.join()
