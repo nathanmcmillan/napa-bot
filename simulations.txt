@@ -1,35 +1,16 @@
 
 - hold
-market buy {trend green 1h}
-market sell {never}
-limit buy {never}
-limit sell {never}
-conditions {buy 1.0} {sell 0.0}
+buy 1.0 {trend green 1h}
+sell {never}
 
 - macd
-market buy {macd green 12h 26h}
-market sell {macd red 12h 26h}
-limit buy {never}
-limit sell {never}
-conditions {buy 0.8} {sell 0.006}
+buy 0.8 {macd green 12h 26h}
+sell {trail}
 
 - trend follow
-market buy {trend green 2h} {change 0.03 2h} {trend green 7d}
-market sell {trend red 2h}
-limit buy {never}
-limit sell {never}
-conditions {buy 0.8} {sell 0.006}
+buy 0.8 {trend green 2h} {change 0.03 2h} {trend green 7d}
+sell {trail}
 
 - trend or maru
-market buy {trend green 2h} or {maru green 0h}
-market sell {trend red 2h}
-limit buy {never}
-limit sell {never}
-conditions {buy 0.8} {sell 0.006}
-
-- prevent loss
-market buy {never}
-market sell {never}
-limit buy {trend green 2h}
-limit sell {trail atr 2}
-conditions {buy 0.8} {sell 0.006}
+buy 0.8 {trend green 2h} or {maru green 0h}
+sell {trail}

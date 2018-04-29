@@ -5,20 +5,76 @@ import json
 import os.path
 import patterns
 import genetics
-import simulation
 import random
 from genetics import GetTrend
 from gdax import Candle
 from trends import ConvergeDiverge
 from genetics import Genetics
 from operator import itemgetter
-from simulation import SimOrder
-'''
-bear
-buy: {trend, period: 2, signal: green}
-sell:
-conditions: {'fund_percent': 0.9577636181452933, 'min_sell': 0.35525307067742246}
-'''
+
+class SimOrder:
+    def __init__(self, coin_price, size, usd):
+        self.coin_price = coin_price
+        if size:
+            self.size = size
+            self.usd = coin_price * size
+        else:
+            self.usd = usd
+            self.size = usd / coin_price
+
+
+def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
+    candle_count = len(candles)
+    orders = []
+    limits = []
+    low = funds
+    high = funds
+    coins = 0.0
+    buys = 0
+    sells = 0
+    index = intervals
+    while index < candle_count:
+        ticker_price = candles[index].closing
+        signal = algorithm(candles, index)
+        if signal == 'buy':
+            usd = funds * conditions['fund_percent']
+            if usd > 10.0:
+                orders.append(SimOrder(ticker_price, None, usd))
+                usd *= (1.0 + fees)
+                funds -= usd
+                coins += orders[-1].size
+                buys += 1
+                total = funds + coins * ticker_price
+                if total < low:
+                    low = total
+                if print_trades:
+                    print('time - {} - ticker ${:,.2f} - spent ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, usd, funds, coins))
+        elif signal == 'sell':
+            for order_to_sell in orders[:]:
+                change = (ticker_price - order_to_sell.coin_price) / order_to_sell.coin_price
+                if change > conditions['min_sell']:
+                    orders.remove(order_to_sell)
+                    usd = (ticker_price * order_to_sell.size) * (1.0 - fees)
+                    funds += usd
+                    coins -= order_to_sell.size
+                    sells += 1
+                    total = funds + coins * ticker_price
+                    if total > high:
+                        high = total
+                    if print_trades:
+                        profit = usd - order_to_sell.usd * (1.0 + fees)
+                        print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))
+        index += 1
+    total = 0.0
+    coins = 0.0
+    end_price = candles[-1].closing
+    for order in orders:
+        total += order.size * end_price
+        coins += order.size
+    total += funds
+    print('total ${:,.2f} - coins {:,.3f}'.format(total, coins))
+    return [total, coins, low, high, buys, sells]
+
 
 print('----------------------------------------')
 print('|       napa genetic simulation        |')
@@ -45,8 +101,8 @@ fees = 0.003
 funds = 1000.0
 intervals = 22
 
-epochs = 50
-random_limit = 50
+epochs = 2
+random_limit = 20
 top_mix_limit = 10
 cooldown = 2.0
 
@@ -63,11 +119,6 @@ for epoch in range(epochs):
 
     todo = []
     todo.extend(genetic_random)
-    '''top_len = min(top_mix_limit, len(genetic_list))
-    for index in range(0, top_len):
-        top_gene = genetic_list[index][0]
-        for random_gene in genetic_random:
-            todo.extend(genetics.permutate(top_gene, random_gene))'''
     top_len = min(top_mix_limit, len(genetic_list))
     for random_gene in genetic_random:
         for index in range(0, top_len):
@@ -97,12 +148,11 @@ for epoch in range(epochs):
     print('testing', len(todo), 'combinations (', epoch, '/', epochs, ')', flush=True)
     time.sleep(cooldown)
     for genes in todo:
-        result = simulation.round(candles, intervals, funds, fees, genes.signal, genes.conditions, False)
-        if result[0] > funds:
-            if result[5] == 0:
-                genes.sell.clear()
-            result.insert(0, genes)
-            genetic_list.append(result)
+        result = round(candles, intervals, funds, fees, genes.signal, genes.conditions, False)
+        if result[5] == 0:
+            genes.sell.clear()
+        result.insert(0, genes)
+        genetic_list.append(result)
 
     genetic_len = len(genetic_list)
     index = 0
@@ -124,28 +174,8 @@ for epoch in range(epochs):
 
 print('----------------------------------------')
 genes = genetic_list[0][0]
-result = simulation.round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, True)
-'''todo = []
+result = round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, True)
 
-gene = Genetics()
-dna = GetTrend()
-dna.period = 2
-dna.pattern = 'green'
-gene.buy[dna.key()] = dna
-gene.conditions['fund_percent'] = 0.957
-gene.conditions['min_sell'] = -100.0
-todo.append(gene)
-
-genetic_list = []
-for genes in todo:
-    result = simulation.round(candles, intervals, funds, fees, genes.signal, genes.conditions, True)
-    result.insert(0, genes)
-    genetic_list.append(result)
-
-genetic_list.sort(key=itemgetter(1), reverse=True)
-
-for index in range(5):
-'''
 for index in range(5):
     print('----------------------------------------')
     print('top', index + 1)
@@ -161,7 +191,7 @@ for index in range(5):
     print('conditions:', top[0].conditions)
     print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,}'.format(top[1], top[2], top[3], top[4], top[5], top[6]))
     print('entire run - ', end='')
-    simulation.round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, False)
+    round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, False)
 
 print('----------------------------------------')
 print('candle count {:,}'.format(len(candles)))
