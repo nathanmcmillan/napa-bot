@@ -37,7 +37,7 @@ intervals = 22
 
 ls = []
 for test in todo:
-    data = simulation.go(candles, intervals, funds, fees, genes.signal, genes.conditions, False)
+    data = simulation.go(candles, intervals, funds, fees, test, False)
     data.insert(0, test)
     ls.append(data)
 

@@ -10,7 +10,7 @@ class SimOrder:
         self.stop_limit = 0.0 # TODO: price
 
 
-def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
+def round(candles, intervals, funds, fees, strategy, print_trades):
     candle_count = len(candles)
     orders = []
     low = funds
@@ -22,24 +22,24 @@ def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
     while index < candle_count:
         ticker_price = candles[index].closing
         
-        for limit in orders[:]:
+        for order in orders[:]:
             if ticker_price < limit.coin_price:
-                usd = (ticker_price * order_to_sell.size) * (1.0 - fees)
+                usd = (ticker_price * order.size) * (1.0 - fees)
                 funds += usd
-                coins -= order_to_sell.size
+                coins -= order.size
                 sells += 1
                 total = funds + coins * ticker_price
                 if total > high:
                     high = total
                 if print_trades:
-                    profit = usd - order_to_sell.usd * (1.0 + fees)
+                    profit = usd - order.usd * (1.0 + fees)
                     print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))        
-                orders.append(SimOrder(limit.coin_price, None, limit.usd))
+                orders.append(SimOrder(order.coin_price, None, order.usd))
             else:
-                # TODO: adjust non-filled stop limits if needed
+                strategy.stop_limit(limit, ticker_price)
         
-        if algorithm(candles, index):
-            usd = funds * conditions['percent']
+        if strategy.algorithm(candles, index):
+            usd = funds * strategy.percent
             if usd > 10.0:
                 orders.append(SimOrder(ticker_price, None, usd))
                 usd *= (1.0 + fees)
@@ -51,6 +51,7 @@ def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
                     low = total
                 if print_trades:
                     print('time - {} - ticker ${:,.2f} - spent ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, usd, funds, coins))
+        
         index += 1
                     
     total = 0.0
