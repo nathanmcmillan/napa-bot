@@ -5,28 +5,27 @@ import time
 
 FEED_SITE = 'wss://ws-feed.gdax.com'
 
+
 class Subscription:
     def __init__(self):
+        self.feed = None
         self.thred = Thread(target=self.run_feed)
         self.thred.start()
-        
-    def feed_message(feed, message):
+
+    def feed_message(self, feed, message):
         print(message)
         feed.close()
 
-
-    def feed_close(feed):
+    def feed_close(self, feed):
         print('socket closed')
 
-
-    def feed_open(feed):
+    def feed_open(self, feed):
         products = ['BTC-USD', 'ETH-USD']
         channels = ['ticker']
         params = {'type': 'subscribe', 'product_ids': products, 'channels': channels}
         feed.send(json.dumps(params))
 
-
-    def run_feed():
+    def run_feed(self):
         feed = websocket.WebSocketApp(FEED_SITE, on_message=self.feed_message, on_close=self.feed_close)
         feed.on_open = self.feed_open
         feed.run_forever()

@@ -7,10 +7,10 @@ class SimOrder:
         else:
             self.usd = usd
             self.size = usd / coin_price
-        self.stop_limit = 0.0 # TODO: price
+        self.stop_limit = 0.0  # TODO: price
 
 
-def round(candles, intervals, funds, fees, strategy, print_trades):
+def run(candles, intervals, funds, fees, strategy, print_trades):
     candle_count = len(candles)
     orders = []
     low = funds
@@ -21,9 +21,9 @@ def round(candles, intervals, funds, fees, strategy, print_trades):
     index = intervals
     while index < candle_count:
         ticker_price = candles[index].closing
-        
+
         for order in orders[:]:
-            if ticker_price < limit.coin_price:
+            if ticker_price < order.coin_price:
                 usd = (ticker_price * order.size) * (1.0 - fees)
                 funds += usd
                 coins -= order.size
@@ -33,11 +33,11 @@ def round(candles, intervals, funds, fees, strategy, print_trades):
                     high = total
                 if print_trades:
                     profit = usd - order.usd * (1.0 + fees)
-                    print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))        
+                    print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))
                 orders.append(SimOrder(order.coin_price, None, order.usd))
             else:
-                strategy.stop_limit(limit, ticker_price)
-        
+                strategy.stop_limit(order, ticker_price)
+
         if strategy.algorithm(candles, index):
             usd = funds * strategy.percent
             if usd > 10.0:
@@ -51,9 +51,9 @@ def round(candles, intervals, funds, fees, strategy, print_trades):
                     low = total
                 if print_trades:
                     print('time - {} - ticker ${:,.2f} - spent ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, usd, funds, coins))
-        
+
         index += 1
-                    
+
     total = 0.0
     coins = 0.0
     end_price = candles[-1].closing

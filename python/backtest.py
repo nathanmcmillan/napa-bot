@@ -35,9 +35,11 @@ fees = 0.003
 funds = 1000.0
 intervals = 22
 
+todo = []
+
 ls = []
 for test in todo:
-    data = simulation.go(candles, intervals, funds, fees, test, False)
+    data = simulation.run(candles, intervals, funds, fees, test, False)
     data.insert(0, test)
     ls.append(data)
 
@@ -58,4 +60,4 @@ for index in range(min(5, len(ls))):
     print('conditions:', top[0].conditions)
     print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,}'.format(top[1], top[2], top[3], top[4], top[5], top[6]))
     print('entire run - ', end='')
-    round(candles_all, intervals, funds, fees, genes.signal, genes.conditions, False)
+    round(candles_all, intervals, funds, fees, top[0], False)

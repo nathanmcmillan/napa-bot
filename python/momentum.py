@@ -67,7 +67,7 @@ class RelativeStrength:
                 positive.update(now - prev)
             else:
                 negative.update(prev - now)
-        self.current = positive.current / (positive.current + negative.current)
+        self.current = positive.current / (positive.current + negative.current + 0.0000001)
         if self.current >= 0.8:
             self.signal = "sell"
         elif self.current <= 0.2:

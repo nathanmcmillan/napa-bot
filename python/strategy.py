@@ -3,8 +3,8 @@ class Strategy:
         self.buy = buy
         self.sell = sell
         self.percent = percent
-        
-    def buy(self, candles, index):
+
+    def algorithm(self, candles, index):
         for _, criteria in self.buy.items():
             if not criteria.met(candles, index):
                 return False
