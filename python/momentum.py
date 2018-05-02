@@ -20,7 +20,7 @@ class OnBalanceVolume:
 
 class MoneyFlow:
     def __init__(self, periods):
-        self.signal = "wait"
+        self.signal = 'wait'
         self.periods = periods
         self.current = None
 
@@ -42,23 +42,22 @@ class MoneyFlow:
             previous = typical_price
         self.current = positive / (positive + negative)
         if self.current >= 0.8:
-            self.signal = "sell"
+            self.signal = 'sell'
         elif self.current <= 0.2:
-            self.signal = "buy"
+            self.signal = 'buy'
         else:
-            self.signal = "wait"
+            self.signal = 'wait'
 
 
 class RelativeStrength:
     def __init__(self, periods):
-        self.signal = "wait"
+        self.signal = 'wait'
         self.periods = periods
         self.current = None
 
-    def update(self, candles):
-        positive = MovingAverage(self.periods - 1, 0.0)
-        negative = MovingAverage(self.periods - 1, 0.0)
-        end = len(candles)
+    def update(self, candles, end):
+        positive = MovingAverage(self.periods, 0.0)
+        negative = MovingAverage(self.periods, 0.0)
         start = end - self.periods + 1
         for index in range(start, end):
             prev = candles[index - 1].closing
@@ -67,10 +66,14 @@ class RelativeStrength:
                 positive.update(now - prev)
             else:
                 negative.update(prev - now)
-        self.current = positive.current / (positive.current + negative.current + 0.0000001)
+        total = positive.current + negative.current
+        if total == 0:
+            self.signal = 'wait'
+            return
+        self.current = positive.current / total
         if self.current >= 0.8:
-            self.signal = "sell"
+            self.signal = 'sell'
         elif self.current <= 0.2:
-            self.signal = "buy"
+            self.signal = 'buy'
         else:
-            self.signal = "wait"
+            self.signal = 'wait'

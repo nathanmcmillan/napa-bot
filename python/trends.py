@@ -1,7 +1,3 @@
-def true_range(candle):
-    return max(candle.high - candle.low, abs(candle.high - candle.open), abs(candle.low - candle.open))
-
-
 class MovingAverage:
     def __init__(self, periods, initial):
         self.periods = periods
@@ -52,8 +48,46 @@ class AverageDirectional:
                 positive_dm += up_move
             if down_move > up_move and down_move > 0.0:
                 negative_dm += down_move
-            average_range += true_range(today)
+            average_range += average_true_range(today)
         positive_di = positive_dm / average_range
         negative_di = negative_dm / average_range
         direction_movement = abs(positive_di - negative_di) / (positive_di + negative_di)
         self.current = direction_movement
+
+
+def average_true_range(candle):
+    return max(candle.high - candle.low, abs(candle.high - candle.open), abs(candle.low - candle.open))
+
+
+def support(candles, start, end):
+    MIN_DIFFERENCE = 0.01
+    low = candles[start].closing
+    count = 0
+    for index in range(start, end):
+        candle = candles[index]
+        diff = abs(candle.closing - low) / low
+        if diff <= MIN_DIFFERENCE:
+            count += 1
+        elif candle.closing < low:
+            low = candle.closing
+            count = 0
+    if count > 0:
+        return low
+    return None
+
+
+def resistance(candles, start, end):
+    MIN_DIFFERENCE = 0.01
+    high = candles[start].closing
+    count = 0
+    for index in range(start, end):
+        candle = candles[index]
+        diff = abs(candle.closing - high) / high
+        if diff <= MIN_DIFFERENCE:
+            count += 1
+        elif candle.closing > high:
+            high = candle.closing
+            count = 0
+    if count > 0:
+        return high
+    return None

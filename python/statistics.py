@@ -1,10 +1,9 @@
-import sys
 import signal
 import time
 import json
 import os.path
 import patterns
-import genetics
+import trends
 import random
 import simulation
 from genetics import GetTrend
@@ -21,8 +20,8 @@ print('----------------------------------------')
 BUY = 'buy'
 SELL = 'sell'
 
-UP_ONE = 1.001
-DOWN_ONE = 1.0 - 0.001
+MIN_UP = 1.0 + 0.01
+MIN_DOWN = 1.0 - 0.01
 
 GREEN_MARU_UP = 'green maru up'
 RED_MARU_UP = 'red maru up'
@@ -34,17 +33,21 @@ CONTINUOUS_UP = 'continuous green'
 CONTINUOUS_DOWN = 'continuous red'
 DOUBLE_CONTINUOUS_UP = 'double continuous green'
 DOUBLE_CONTINUOUS_DOWN = 'double continuous red'
-RSI_LOW_UP = 'rsi low up'
-RSI_HIGH_DOWN = 'rsi high down'
+RSI_BUY_UP = 'rsi buy up'
+RSI_SELL_DOWN = 'rsi sell down'
 MACD_BUY_UP = 'macd buy up'
 MACD_SELL_DOWN = 'macd sell down'
+BREAK_RESISTANCE_UP = 'break resistance up'
+BOUNCE_RESISTANCE_DOWN = 'bounce reistance down'
+BREAK_SUPPORT_DOWN = 'break support down'
+BOUNCE_SUPPORT_UP = 'bounce support up'
 
 
 def action(candles, index):
     candle_len = len(candles)
     price = candles[index].closing
-    up = price * UP_ONE
-    down = price * DOWN_ONE
+    up = price * MIN_UP
+    down = price * MIN_DOWN
     index += 1
     while index < candle_len:
         closing = candles[index].closing
@@ -70,65 +73,68 @@ def stats(candles):
     ideas[DOUBLE_CONTINUOUS_DOWN] = [0, 0]
     ideas[MACD_BUY_UP] = [0, 0]
     ideas[MACD_SELL_DOWN] = [0, 0]
-    #ideas[RSI_LOW_UP] = [0, 0]
-    #ideas[RSI_HIGH_DOWN] = [0, 0]
-    candle_len = len(candles) - 7
+    ideas[RSI_BUY_UP] = [0, 0]
+    ideas[RSI_SELL_DOWN] = [0, 0]
+    ideas[BREAK_RESISTANCE_UP] = [0, 0]
+    ideas[BOUNCE_RESISTANCE_DOWN] = [0, 0]
+    ideas[BREAK_SUPPORT_DOWN] = [0, 0]
+    ideas[BOUNCE_SUPPORT_UP] = [0, 0]
+    candle_len = len(candles)
     index = 26
     while index < candle_len:
-        prev_candle = candles[index - 1]
+        previous_candle = candles[index - 1]
         candle = candles[index]
-        next_candle = candles[index + 1]
-        next_next_candle = candles[index + 2]
-
         signal = action(candles, index)
 
         # maru
         maru = patterns.marubozu(candle)
         if maru == 'green':
             ideas[GREEN_MARU_UP][1] += 1
-            if next_candle.closing > candle.closing:
+            if signal == BUY:
                 ideas[GREEN_MARU_UP][0] += 1
         elif maru == 'red':
             ideas[RED_MARU_UP][1] += 1
-            if next_candle.closing > candle.closing:
+            if signal == BUY:
                 ideas[RED_MARU_UP][0] += 1
 
         # hammer
         hammer = patterns.hammer(candle)
         if hammer == 'green':
             ideas[GREEN_HAMMER_UP][1] += 1
-            if next_candle.closing > candle.closing:
+            if signal == BUY:
                 ideas[GREEN_HAMMER_UP][0] += 1
         elif hammer == 'red':
             ideas[RED_HAMMER_DOWN][1] += 1
-            if next_candle.closing < candle.closing:
+            if signal == SELL:
                 ideas[RED_HAMMER_DOWN][0] += 1
 
         # star
         star = patterns.shooting_star(candle)
         if star == 'green':
             ideas[GREEN_STAR_UP][1] += 1
-            if next_candle.closing > candle.closing:
+            if signal == BUY:
                 ideas[GREEN_STAR_UP][0] += 1
         elif star == 'red':
             ideas[RED_STAR_DOWN][1] += 1
-            if next_candle.closing < candle.closing:
+            if signal == SELL:
                 ideas[RED_STAR_DOWN][0] += 1
 
         # continous
-        if prev_candle.closing < candle.closing:
+        if candle.open < candle.closing:
             ideas[CONTINUOUS_UP][1] += 1
-            if candle.closing < next_candle.closing:
+            if signal == BUY:
                 ideas[CONTINUOUS_UP][0] += 1
+            if previous_candle.open < previous_candle.closing:
                 ideas[DOUBLE_CONTINUOUS_UP][1] += 1
-                if next_candle.closing < next_next_candle.closing:
+                if signal == BUY:
                     ideas[DOUBLE_CONTINUOUS_UP][0] += 1
-        elif prev_candle.closing > candle.closing:
+        elif candle.open > candle.closing:
             ideas[CONTINUOUS_DOWN][1] += 1
-            if candle.closing > next_candle.closing:
+            if signal == SELL:
                 ideas[CONTINUOUS_DOWN][0] += 1
+            if previous_candle.open > previous_candle.closing:
                 ideas[DOUBLE_CONTINUOUS_DOWN][1] += 1
-                if next_candle.closing > next_next_candle.closing:
+                if signal == SELL:
                     ideas[DOUBLE_CONTINUOUS_DOWN][0] += 1
 
         # macd
@@ -137,36 +143,51 @@ def stats(candles):
             macd.update(candles[jindex].closing)
         if macd.signal == 'buy':
             ideas[MACD_BUY_UP][1] += 1
-            if candles[index + 6].closing > candle.closing * UP_ONE:
+            if signal == BUY:
                 ideas[MACD_BUY_UP][0] += 1
         elif macd.signal == 'sell':
             ideas[MACD_SELL_DOWN][1] += 1
-            if candles[index + 6].closing < candle.closing * DOWN_ONE:
+            if signal == SELL:
                 ideas[MACD_SELL_DOWN][0] += 1
 
-        # relative strength index
-        '''rsi = RelativeStrength(14)
-        rsi.update(candles[index - 16:index])
-        if rsi == 'buy':
-            ideas[RSI_LOW_UP][1] += 1
-            if candle.closing < next_candle.closing:
-                ideas[RSI_LOW_UP][0] += 1
-        elif rsi == 'sell':
-            ideas[RSI_HIGH_DOWN][1] += 1
-            if candle.closing > next_candle.closing:
-                ideas[RSI_HIGH_DOWN][0] += 1'''
+        # rsi
+        rsi = RelativeStrength(14)
+        rsi.update(candles, index)
+        if rsi.signal == 'buy':
+            ideas[RSI_BUY_UP][1] += 1
+            if signal == BUY:
+                ideas[RSI_BUY_UP][0] += 1
+        elif rsi.signal == 'sell':
+            ideas[RSI_SELL_DOWN][1] += 1
+            if signal == SELL:
+                ideas[RSI_SELL_DOWN][0] += 1
+
+        # support
+        support = trends.support(candles, index - 26, index - 1)
+        if support and candle.closing < support:
+            ideas[BREAK_SUPPORT_DOWN][1] += 1
+            if signal == SELL:
+                ideas[BREAK_SUPPORT_DOWN][0] += 1
+
+        # support and resistance
+        resistance = trends.resistance(candles, index - 26, index - 1)
+        if resistance and candle.closing > resistance:
+            ideas[BREAK_RESISTANCE_UP][1] += 1
+            if signal == BUY:
+                ideas[BREAK_RESISTANCE_UP][0] += 1
 
         index += 1
 
     print()
     for key, value in ideas.items():
         if value[1] == 0:
-            print('{0:30} true {1} false {2}'.format(key, '-', '-'))
+            print('{0:30} -'.format(key))
             continue
         percent = float(value[0]) / float(value[1]) * 100.0
-        print('{0:30} true {1:.2f}% false {2:.2f}%'.format(key, percent, 100.0 - percent))
+        print('{0:30} true {1:.2f}% false {2:.2f}% ({3:,})'.format(key, percent, 100.0 - percent, value[1]))
 
 
+bear = False
 file_in = '../BTC-USD-300.txt'
 candles = {}
 candles['5 minute'] = []
@@ -179,6 +200,8 @@ candles['30 day'] = []
 with open(file_in, 'r') as open_file:
     for line in open_file:
         candle = Candle(line.split())
+        if candle.time < 1513515600 and bear:
+            continue
         candles['5 minute'].append(candle)
         if candle.time % 1800 == 0:
             candles['30 minute'].append(candle)
@@ -194,6 +217,6 @@ with open(file_in, 'r') as open_file:
             candles['30 day'].append(candle)
 
 for interval, data in candles.items():
-    print(interval, 'candles ({})'.format(len(data)), end='', flush=True)
+    print(interval, 'candles ({:,})'.format(len(data)), end='', flush=True)
     stats(data)
     print('----------------------------------------')

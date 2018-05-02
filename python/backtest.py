@@ -35,6 +35,11 @@ fees = 0.003
 funds = 1000.0
 intervals = 22
 
+# TODO: strategies
+# breakout: if price moves beyond support / resistance it tends to continue on trend
+# capture sudden drops due to stop losses triggering followed by buy backs: find stable price range followed by big % drop in last X minutes
+# kelly criterion: gambling optimal % of funds based on % change of winning
+
 todo = []
 
 ls = []
