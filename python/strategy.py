@@ -1,14 +1,24 @@
+import patterns
+
+
 class Strategy:
-    def __init__(self, buy, sell, percent):
-        self.buy = buy
-        self.sell = sell
+    def __init__(self, name, percent):
+        self.name = name
+        self.buy = []
         self.percent = percent
 
     def algorithm(self, candles, index):
-        for _, criteria in self.buy.items():
-            if not criteria.met(candles, index):
+        for criteria in self.buy:
+            if not criteria(candles, index):
                 return False
         return True
 
-    def stop_limit(self, order, ticker):
-        return 0.0
+    def update_stop_limit(self, order, ticker):
+        low = ticker * 0.95
+        if low > order.stop_limit:
+            order.stop_limit = low
+
+
+def green_maru(candles, index):
+    maru = patterns.marubozu(candles[index])
+    return maru == 'green'

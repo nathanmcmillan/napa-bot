@@ -41,6 +41,7 @@ BREAK_RESISTANCE_UP = 'break resistance up'
 BOUNCE_RESISTANCE_DOWN = 'bounce reistance down'
 BREAK_SUPPORT_DOWN = 'break support down'
 BOUNCE_SUPPORT_UP = 'bounce support up'
+LIQUIDATION_UP = 'liquidation up'
 
 
 def action(candles, index):
@@ -57,6 +58,10 @@ def action(candles, index):
             return SELL
         index += 1
     return ''
+
+
+def signals(candles):
+    return False
 
 
 def stats(candles):
@@ -76,9 +81,10 @@ def stats(candles):
     ideas[RSI_BUY_UP] = [0, 0]
     ideas[RSI_SELL_DOWN] = [0, 0]
     ideas[BREAK_RESISTANCE_UP] = [0, 0]
-    ideas[BOUNCE_RESISTANCE_DOWN] = [0, 0]
+    ideas[BOUNCE_RESISTANCE_DOWN] = [0, 0]  # support & resistance statistics should not be measured per candle
     ideas[BREAK_SUPPORT_DOWN] = [0, 0]
     ideas[BOUNCE_SUPPORT_UP] = [0, 0]
+    ideas[LIQUIDATION_UP] = [0, 0]
     candle_len = len(candles)
     index = 26
     while index < candle_len:
@@ -169,12 +175,19 @@ def stats(candles):
             if signal == SELL:
                 ideas[BREAK_SUPPORT_DOWN][0] += 1
 
-        # support and resistance
+        # resistance
         resistance = trends.resistance(candles, index - 26, index - 1)
         if resistance and candle.closing > resistance:
             ideas[BREAK_RESISTANCE_UP][1] += 1
             if signal == BUY:
                 ideas[BREAK_RESISTANCE_UP][0] += 1
+
+        # liquidation
+        liquid = trends.liquidation(candles, index - 6, index - 3, index)
+        if liquid:
+            ideas[LIQUIDATION_UP][1] += 1
+            if signal == BUY:
+                ideas[LIQUIDATION_UP][0] += 1
 
         index += 1
 

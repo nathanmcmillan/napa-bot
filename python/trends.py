@@ -62,16 +62,16 @@ def average_true_range(candle):
 def support(candles, start, end):
     MIN_DIFFERENCE = 0.01
     low = candles[start].closing
-    count = 0
+    count = 1
     for index in range(start, end):
         candle = candles[index]
-        diff = abs(candle.closing - low) / low
+        diff = abs(low - candle.closing) / candle.closing
         if diff <= MIN_DIFFERENCE:
             count += 1
         elif candle.closing < low:
             low = candle.closing
-            count = 0
-    if count > 0:
+            count = 1
+    if count > 2:
         return low
     return None
 
@@ -79,15 +79,28 @@ def support(candles, start, end):
 def resistance(candles, start, end):
     MIN_DIFFERENCE = 0.01
     high = candles[start].closing
-    count = 0
+    count = 1
     for index in range(start, end):
         candle = candles[index]
-        diff = abs(candle.closing - high) / high
+        diff = abs(high - candle.closing) / candle.closing
         if diff <= MIN_DIFFERENCE:
             count += 1
         elif candle.closing > high:
             high = candle.closing
-            count = 0
-    if count > 0:
+            count = 1
+    if count > 2:
         return high
     return None
+
+
+def liquidation(candles, start, middle, end):
+    first = candles[start].closing
+    second = candles[middle].closing
+    third = candles[end].closing
+    if first < third:
+        return False
+    diff = abs(second - first) / first
+    if diff > 0.01:
+        return False
+    diff = abs(third - second) / second
+    return diff > 0.01

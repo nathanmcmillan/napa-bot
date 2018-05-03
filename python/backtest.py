@@ -1,68 +1,65 @@
-import sys
-import signal
-import time
-import json
-import os.path
-import patterns
-import genetics
-import random
+import strategy
 import simulation
-from genetics import GetTrend
+from strategy import Strategy
 from gdax import Candle
-from trends import ConvergeDiverge
-from genetics import Genetics
 from operator import itemgetter
 
 print('----------------------------------------')
 print('|              napa test               |')
 print('----------------------------------------')
 
+bear = False
 file_in = '../BTC-USD-300.txt'
-candles_bull = []
-candles_bear = []
-candles_all = []
+candles = {}
+candles['5 minute'] = []
+candles['30 minute'] = []
+candles['1 hour'] = []
+candles['6 hour'] = []
+candles['1 day'] = []
+candles['7 day'] = []
+candles['30 day'] = []
 with open(file_in, 'r') as open_file:
     for line in open_file:
         candle = Candle(line.split())
-        candles_all.append(candle)
-        if candle.time < 1513515600:
-            candles_bull.append(candle)
-        else:
-            candles_bear.append(candle)
-candles = candles_bear
+        if candle.time < 1513515600 and bear:
+            continue
+        candles['5 minute'].append(candle)
+        if candle.time % 1800 == 0:
+            candles['30 minute'].append(candle)
+        if candle.time % 3600 == 0:
+            candles['1 hour'].append(candle)
+        if candle.time % 21600 == 0:
+            candles['6 hour'].append(candle)
+        if candle.time % 86400 == 0:
+            candles['1 day'].append(candle)
+        if candle.time % 604800 == 0:
+            candles['7 day'].append(candle)
+        if candle.time % 2592000 == 0:
+            candles['30 day'].append(candle)
 
 fees = 0.003
 funds = 1000.0
 intervals = 22
 
-# TODO: strategies
-# breakout: if price moves beyond support / resistance it tends to continue on trend
-# capture sudden drops due to stop losses triggering followed by buy backs: find stable price range followed by big % drop in last X minutes
-# kelly criterion: gambling optimal % of funds based on % change of winning
-
 todo = []
 
+strat = Strategy('green maru', 0.1)
+strat.buy.append(strategy.green_maru)
+todo.append(strat)
+
 ls = []
-for test in todo:
-    data = simulation.run(candles, intervals, funds, fees, test, False)
-    data.insert(0, test)
-    ls.append(data)
+for interval, values in candles.items():
+    for test in todo:
+        print('testing...', end=' ', flush=True)
+        data = simulation.run(values, intervals, funds, fees, test, False)
+        data.insert(0, test)
+        ls.append(data)
+        data.append(interval)
 
 ls.sort(key=itemgetter(1), reverse=True)
 
 for index in range(min(5, len(ls))):
     print('----------------------------------------')
-    print('top', index + 1)
     top = ls[index]
-    print('buy: ', end='')
-    for _, criteria in top[0].buy.items():
-        print(criteria.to_string(), sep='', end=' ')
-    print()
-    print('sell: ', end='')
-    for _, criteria in top[0].sell.items():
-        print(criteria.to_string(), sep='', end=' ')
-    print()
-    print('conditions:', top[0].conditions)
+    print('top', index + 1, top[0].name, top[7])
     print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,}'.format(top[1], top[2], top[3], top[4], top[5], top[6]))
-    print('entire run - ', end='')
-    round(candles_all, intervals, funds, fees, top[0], False)

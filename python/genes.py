@@ -12,6 +12,7 @@ from trends import ConvergeDiverge
 from genetics import Genetics
 from operator import itemgetter
 
+
 class SimOrder:
     def __init__(self, coin_price, size, usd):
         self.coin_price = coin_price
@@ -26,7 +27,6 @@ class SimOrder:
 def round(candles, intervals, funds, fees, algorithm, conditions, print_trades):
     candle_count = len(candles)
     orders = []
-    limits = []
     low = funds
     high = funds
     coins = 0.0

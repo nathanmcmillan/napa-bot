@@ -23,7 +23,8 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
         ticker_price = candles[index].closing
 
         for order in orders[:]:
-            if ticker_price < order.coin_price:
+            if ticker_price < order.stop_limit:
+                orders.remove(order)
                 usd = (ticker_price * order.size) * (1.0 - fees)
                 funds += usd
                 coins -= order.size
@@ -34,9 +35,8 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
                 if print_trades:
                     profit = usd - order.usd * (1.0 + fees)
                     print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))
-                orders.append(SimOrder(order.coin_price, None, order.usd))
             else:
-                strategy.stop_limit(order, ticker_price)
+                strategy.update_stop_limit(order, ticker_price)
 
         if strategy.algorithm(candles, index):
             usd = funds * strategy.percent
