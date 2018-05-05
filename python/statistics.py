@@ -42,6 +42,8 @@ BOUNCE_RESISTANCE_DOWN = 'bounce reistance down'
 BREAK_SUPPORT_DOWN = 'break support down'
 BOUNCE_SUPPORT_UP = 'bounce support up'
 LIQUIDATION_UP = 'liquidation up'
+DERIVATIVE_GREEN_UP = 'derivative green up'
+DERIVATIVE_RED_DOWN = 'derivative red down'
 
 
 def action(candles, index):
@@ -58,10 +60,6 @@ def action(candles, index):
             return SELL
         index += 1
     return ''
-
-
-def signals(candles):
-    return False
 
 
 def stats(candles):
@@ -85,6 +83,8 @@ def stats(candles):
     ideas[BREAK_SUPPORT_DOWN] = [0, 0]
     ideas[BOUNCE_SUPPORT_UP] = [0, 0]
     ideas[LIQUIDATION_UP] = [0, 0]
+    ideas[DERIVATIVE_GREEN_UP] = [0, 0]
+    ideas[DERIVATIVE_RED_DOWN] = [0, 0]
     candle_len = len(candles)
     index = 26
     while index < candle_len:
@@ -188,6 +188,17 @@ def stats(candles):
             ideas[LIQUIDATION_UP][1] += 1
             if signal == BUY:
                 ideas[LIQUIDATION_UP][0] += 1
+
+        # derivative
+        derivative = trends.derive(candles, index - 6, index)
+        if derivative == 'green':
+            ideas[DERIVATIVE_GREEN_UP][1] += 1
+            if signal == BUY:
+                ideas[DERIVATIVE_GREEN_UP][0] += 1
+        elif derivative == 'red':
+            ideas[DERIVATIVE_RED_DOWN][1] += 1
+            if signal == SELL:
+                ideas[DERIVATIVE_RED_DOWN][0] += 1
 
         index += 1
 

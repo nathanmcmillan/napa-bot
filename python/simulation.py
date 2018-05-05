@@ -7,7 +7,7 @@ class SimOrder:
         else:
             self.usd = usd
             self.size = usd / coin_price
-        self.stop_limit = 0.0  # TODO: price
+        self.stop_limit = 0.0
 
 
 def run(candles, intervals, funds, fees, strategy, print_trades):
@@ -18,12 +18,15 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
     coins = 0.0
     buys = 0
     sells = 0
+    gains = 0
+    losses = 0
     index = intervals
     while index < candle_count:
         ticker_price = candles[index].closing
 
+        sell = strategy.sell(candles, index)
         for order in orders[:]:
-            if ticker_price < order.stop_limit:
+            if sell or ticker_price < order.stop_limit:
                 orders.remove(order)
                 usd = (ticker_price * order.size) * (1.0 - fees)
                 funds += usd
@@ -32,16 +35,22 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
                 total = funds + coins * ticker_price
                 if total > high:
                     high = total
+                profit = usd - order.usd * (1.0 + fees)
+                if profit > 0:
+                    gains += 1
+                else:
+                    losses += 1
                 if print_trades:
-                    profit = usd - order.usd * (1.0 + fees)
                     print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))
             else:
-                strategy.update_stop_limit(order, ticker_price)
+                strategy.stop_limit(candles, index, order)
 
-        if strategy.algorithm(candles, index):
-            usd = funds * strategy.percent
+        if strategy.buy(candles, index):
+            usd = strategy.amount(funds)
             if usd > 10.0:
-                orders.append(SimOrder(ticker_price, None, usd))
+                order = SimOrder(ticker_price, None, usd)
+                orders.append(order)
+                strategy.stop_limit(candles, index, order)
                 usd *= (1.0 + fees)
                 funds -= usd
                 coins += orders[-1].size
@@ -62,4 +71,4 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
         coins += order.size
     total += funds
     print('total ${:,.2f} - coins {:,.3f}'.format(total, coins))
-    return [total, coins, low, high, buys, sells]
+    return [total, coins, low, high, buys, sells, gains, losses]

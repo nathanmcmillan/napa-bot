@@ -48,14 +48,14 @@ class AverageDirectional:
                 positive_dm += up_move
             if down_move > up_move and down_move > 0.0:
                 negative_dm += down_move
-            average_range += average_true_range(today)
+            average_range += true_range(today)
         positive_di = positive_dm / average_range
         negative_di = negative_dm / average_range
         direction_movement = abs(positive_di - negative_di) / (positive_di + negative_di)
         self.current = direction_movement
 
 
-def average_true_range(candle):
+def true_range(candle):
     return max(candle.high - candle.low, abs(candle.high - candle.open), abs(candle.low - candle.open))
 
 
@@ -104,3 +104,29 @@ def liquidation(candles, start, middle, end):
         return False
     diff = abs(third - second) / second
     return diff > 0.01
+
+
+def calculate_support_resistance(candles):
+    return []
+
+
+def derive(candles, start, end):
+    delta = 0.0
+    success = True
+    for index in range(start + 1, end):
+        current = candles[index].closing - candles[index - 1].closing
+        if current >= delta:
+            delta = current
+        else:
+            success = False
+            break
+    if success:
+        return 'green'
+    delta = 0.0
+    for index in range(start + 1, end):
+        current = candles[index].closing - candles[index - 1].closing
+        if current <= delta:
+            delta = current
+        else:
+            return ''
+    return 'red'
