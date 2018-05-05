@@ -20,6 +20,17 @@ class Strategy:
         return funds * percent
 
 
+def nothing(candles, index, order):
+    return False
+
+
+def not_continue_trend(candles, index, order):
+    ticker = candles[index].closing
+    if ticker > order.coin_price * 1.01:
+        return not continue_trend(candles, index)
+    return False
+
+
 def no_loss(candles, index, order):
     closing = candles[index].closing
     if closing < order.coin_price:
@@ -53,10 +64,6 @@ def chandelier(candles, index, order):
         average_true_range += trends.true_range(candles[jindex])
     average_true_range /= 22.0
     order.stop_limit = highest - average_true_range * 3.0
-
-
-def nothing(candles, index):
-    return False
 
 
 def continue_trend(candles, index):
@@ -104,3 +111,7 @@ def trend_and_maru(candles, index):
     a = patterns.marubozu(candles[index]) == 'green'
     b = patterns.marubozu(candles[index - 1]) == 'green'
     return candles[index - 1].open < candles[index].closing and (a or b)
+
+
+def derivative(candles, index):
+    return trends.derive(candles, index - 6, index) == 'green'

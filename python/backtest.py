@@ -123,6 +123,17 @@ strat.buy = strategy.trend_and_maru
 strat.stop_limit = strategy.no_loss
 todo.append(strat)
 
+strat = Strategy('trend 7 intervals + sell no trend')
+strat.buy = strategy.continue_trend
+strat.sell = strategy.not_continue_trend
+strat.stop_limit = strategy.no_loss
+todo.append(strat)
+
+strat = Strategy('derive + no loss')
+strat.buy = strategy.derivative
+strat.stop_limit = strategy.no_loss
+todo.append(strat)
+
 ls = []
 for interval, values in candles.items():
     for test in todo:
@@ -134,12 +145,23 @@ for interval, values in candles.items():
 
 ls.sort(key=itemgetter(2), reverse=True)
 
+top = set()
+for algo in ls[:]:
+    name = algo[0].name
+    if name in top:
+        ls.remove(algo)
+    else:
+        top.add(name)
+
 print('----------------------------------------')
 single = simulation.SimOrder(candles['5 minute'][0].closing, None, funds)
 print('buy & hold ${:,.2f} - high ${:,.2f}'.format(single.size * candles['5 minute'][-1].closing, single.size * 19500.0))
+
+print('----------------------------------------')
+print('perect ${:,.2f}'.format(simulation.perfect(candles['30 day'], funds)))
 
 for index in range(min(10, len(ls))):
     print('----------------------------------------')
     top = ls[index]
     print('top', index + 1, ':', top[0].name, ':', top[1])
-    print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,} - gains {:,} - losses {:,}'.format(top[2], top[3], top[4], top[5], top[6], top[7], top[8], top[9]))
+    print('total ${:,.2f} - coins {:,.3f} - low ${:,.2f} - high ${:,.2f} - buys {:,} - sells {:,} - gains {:,} - losses {:,} - draw down {:,.2f}%'.format(top[2], top[3], top[4], top[5], top[6], top[7], top[8], top[9], top[10]))

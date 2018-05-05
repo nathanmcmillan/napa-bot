@@ -8,6 +8,16 @@ class SimOrder:
             self.usd = usd
             self.size = usd / coin_price
         self.stop_limit = 0.0
+        self.high = coin_price
+        self.low = coin_price
+        self.draw_down = 0.0
+
+    def update(self, ticker):
+        if ticker < self.low:
+            self.low = ticker
+        elif ticker > self.high:
+            self.high = ticker
+        self.draw_down = (self.high - self.low) / self.high
 
 
 def run(candles, intervals, funds, fees, strategy, print_trades):
@@ -20,13 +30,13 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
     sells = 0
     gains = 0
     losses = 0
+    draw_down = 0.0
     index = intervals
     while index < candle_count:
         ticker_price = candles[index].closing
 
-        sell = strategy.sell(candles, index)
         for order in orders[:]:
-            if sell or ticker_price < order.stop_limit:
+            if strategy.sell(candles, index, order) or ticker_price < order.stop_limit:
                 orders.remove(order)
                 usd = (ticker_price * order.size) * (1.0 - fees)
                 funds += usd
@@ -44,6 +54,9 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
                     print('time - {} - ticker ${:,.2f} - profit ${:,.2f} - funds ${:,.2f} - coins {:,.3f}'.format(candles[index].time, ticker_price, profit, funds, coins))
             else:
                 strategy.stop_limit(candles, index, order)
+                order.update(ticker_price)
+                if order.draw_down > draw_down:
+                    draw_down = order.draw_down
 
         if strategy.buy(candles, index):
             usd = strategy.amount(funds)
@@ -71,4 +84,12 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
         coins += order.size
     total += funds
     print('total ${:,.2f} - coins {:,.3f}'.format(total, coins))
-    return [total, coins, low, high, buys, sells, gains, losses]
+    return [total, coins, low, high, buys, sells, gains, losses, draw_down]
+
+
+def perfect(candles, funds):
+    low = candles[0].low
+    high = candles[0.high]
+    for candle in candles:
+        
+    return funds
