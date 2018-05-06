@@ -130,3 +130,24 @@ def derive(candles, start, end):
         else:
             return ''
     return 'red'
+
+def velocity_reversal(candles, start, end):
+    delta = 999888777.0
+    success = True
+    for index in range(start + 1, end):
+        current = candles[index].closing - candles[index - 1].closing
+        if delta > 0.0 and current <= delta:
+            delta = current
+        else:
+            success = False
+            break
+    if success:
+        return 'red'
+    delta = -999888777.0
+    for index in range(start + 1, end):
+        current = candles[index].closing - candles[index - 1].closing
+        if delta < 0.0 and current >= delta:
+            delta = current
+        else:
+            return ''
+    return 'green'

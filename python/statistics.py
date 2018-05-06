@@ -20,8 +20,8 @@ print('----------------------------------------')
 BUY = 'buy'
 SELL = 'sell'
 
-MIN_UP = 1.0 + 0.01
-MIN_DOWN = 1.0 - 0.01
+MIN_UP = 1.0 + 0.003
+MIN_DOWN = 1.0 - 0.003
 
 GREEN_MARU_UP = 'green maru up'
 RED_MARU_UP = 'red maru up'
@@ -44,7 +44,8 @@ BOUNCE_SUPPORT_UP = 'bounce support up'
 LIQUIDATION_UP = 'liquidation up'
 DERIVATIVE_GREEN_UP = 'derivative green up'
 DERIVATIVE_RED_DOWN = 'derivative red down'
-
+VELOCITY_REVERSE_GREEN_UP = 'velocity reverse green up'
+VELOCITY_REVERSE_RED_DOWN = 'velocity reverse red down'
 
 def action(candles, index):
     candle_len = len(candles)
@@ -85,6 +86,8 @@ def stats(candles):
     ideas[LIQUIDATION_UP] = [0, 0]
     ideas[DERIVATIVE_GREEN_UP] = [0, 0]
     ideas[DERIVATIVE_RED_DOWN] = [0, 0]
+    ideas[VELOCITY_REVERSE_GREEN_UP] = [0, 0]
+    ideas[VELOCITY_REVERSE_RED_DOWN] = [0, 0]
     candle_len = len(candles)
     index = 26
     while index < candle_len:
@@ -199,6 +202,17 @@ def stats(candles):
             ideas[DERIVATIVE_RED_DOWN][1] += 1
             if signal == SELL:
                 ideas[DERIVATIVE_RED_DOWN][0] += 1
+
+        # velocity
+        velocity = trends.velocity_reversal(candles, index - 6, index)
+        if velocity == 'green':
+            ideas[VELOCITY_REVERSE_GREEN_UP][1] += 1
+            if signal == BUY:
+                ideas[VELOCITY_REVERSE_GREEN_UP][0] += 1
+        elif velocity == 'red':
+            ideas[VELOCITY_REVERSE_RED_DOWN][1] += 1
+            if signal == SELL:
+                ideas[VELOCITY_REVERSE_RED_DOWN][0] += 1
 
         index += 1
 

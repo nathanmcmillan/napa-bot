@@ -115,3 +115,15 @@ def trend_and_maru(candles, index):
 
 def derivative(candles, index):
     return trends.derive(candles, index - 6, index) == 'green'
+
+def velocity_reversal(candles, index):
+    delta = candles[index - 5].closing - candles[index - 6].closing
+    if delta > 0.0:
+        return False
+    for jindex in range(index - 4, index):
+        next_delta = candles[jindex].closing - candles[jindex - 1].closing
+        if next_delta < 0.0 and next_delta >= delta:
+            delta = next_delta
+        else:
+            return False
+    return True

@@ -134,6 +134,11 @@ strat.buy = strategy.derivative
 strat.stop_limit = strategy.no_loss
 todo.append(strat)
 
+strat = Strategy('velocity reversal + no loss')
+strat.buy = strategy.velocity_reversal
+strat.stop_limit = strategy.no_loss
+todo.append(strat)
+
 ls = []
 for interval, values in candles.items():
     for test in todo:
@@ -156,9 +161,6 @@ for algo in ls[:]:
 print('----------------------------------------')
 single = simulation.SimOrder(candles['5 minute'][0].closing, None, funds)
 print('buy & hold ${:,.2f} - high ${:,.2f}'.format(single.size * candles['5 minute'][-1].closing, single.size * 19500.0))
-
-print('----------------------------------------')
-print('perect ${:,.2f}'.format(simulation.perfect(candles['30 day'], funds)))
 
 for index in range(min(10, len(ls))):
     print('----------------------------------------')
