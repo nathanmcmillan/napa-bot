@@ -88,8 +88,22 @@ def run(candles, intervals, funds, fees, strategy, print_trades):
 
 
 def perfect(candles, funds):
-    low = candles[0].low
-    high = candles[0.high]
+    first_low = candles[0].closing
+    high = candles[0].closing
+    second_low = None
     for candle in candles:
-        
+        if second_low:
+            if candle.closing < second_low:
+                second_low = candle.closing
+            elif candle.high > high:
+                high = candle.closing
+            if (high - second_low) / second_low > 0.01:
+                funds *= (high - first_low) / first_low
+        else:
+            if candle.closing < first_low:
+                first_low = candle.closing
+            elif candle.high > high:
+                high = candle.closing
+            if (high - first_low) / first_low > 0.01:
+                second_low = high
     return funds
