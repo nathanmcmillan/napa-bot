@@ -3,7 +3,7 @@ import signal
 import time
 import json
 import os.path
-import gdax
+import binance
 from datetime import datetime
 from datetime import timedelta
 
@@ -16,12 +16,21 @@ def interrupts(signal, frame):
 
 
 print('----------------------------------------')
-print('|             napa candles             |')
+print('|         napa binance candles         |')
 print('----------------------------------------')
 
 signal.signal(signal.SIGINT, interrupts)
 signal.signal(signal.SIGTERM, interrupts)
 
+symbol = 'LTCBTC'
+interval = '5m'
+start = 1525670700000 - 360000
+end = 1525670700000  # 1525670810
+candles, status = binance.get_candles(symbol, interval, start, end)
+print('candles...')
+for candle in candles:
+    print(candle.open_time, candle.closing, candle.number_of_trades)
+'''
 run = True
 products = ['btcusdt', 'ethusdt', 'xlmeth']
 granularity = '300'
@@ -81,3 +90,4 @@ with open(file_out, "w+") as f:
     for key, candle in sorted(candle_dictionary.items()):
         f.write('{} {:.2f} {:.2f} {:.2f} {:.2f} {:.2f}\n'.format(candle.time, candle.low, candle.high, candle.open, candle.closing, candle.volume))
 print('finished')
+'''
