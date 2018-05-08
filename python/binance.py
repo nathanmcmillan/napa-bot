@@ -44,13 +44,38 @@ class Candle:
         self.taker_buy_quote_asset_volume = float(data[10])
 
 
+class Ticker:
+    def __init__(self, data):
+        self.symbol = data['symbol']
+        self.price = data['price']
+
+
 def get_candles(symbol, interval, start, end):
-    path = '/api/v1/klines?symbol={}&interval={}&startTime={}&endTime={}'.format(
-        symbol, interval, start, end)
+    path = '/api/v1/klines?symbol={}&interval={}&startTime={}&endTime={}'.format(symbol, interval, start, end)
     read, status = request('GET', SITE, path, '')
     if status != 200 or not isinstance(read, list):
         return read, status
     candles = []
-    for read_candle in read:
-        candles.append(Candle(read_candle))
+    for line in read:
+        candles.append(Candle(line))
     return candles, status
+
+
+def get_ticker(symbol):
+    if symbol:
+        path = '/api/v3/ticker/price?symbol={}'.format(symbol)
+    else:
+        path = '/api/v3/ticker/price'
+    read, status = request('GET', SITE, path, '')
+    if status != 200 or not isinstance(read, list):
+        return read, status
+    tickers = []
+    for line in read:
+        tickers.append(Ticker(line))
+    return tickers, status
+
+
+def get_info():
+    path = '/api/v1/exchangeInfo'
+    read, status = request('GET', SITE, path, '')
+    return read, status

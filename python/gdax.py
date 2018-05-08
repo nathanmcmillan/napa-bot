@@ -165,9 +165,7 @@ def get_accounts(auth):
 
 
 def get_candles(product, start, end, granularity):
-    read, status = request('GET', SITE,
-                           '/products/' + product + '/candles?start=' + start +
-                           '&end=' + end + '&granularity=' + granularity, '')
+    read, status = request('GET', SITE, '/products/' + product + '/candles?start=' + start + '&end=' + end + '&granularity=' + granularity, '')
     if status != 200 or not isinstance(read, list):
         return read, status
     candles = []

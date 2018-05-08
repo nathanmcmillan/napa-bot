@@ -1,0 +1,8 @@
+{
+    "python.formatting.provider": "yapf",
+    "editor.formatOnSave": true,
+    "python.formatting.yapfArgs": [
+        "--style={column_limit=240}",
+    ],
+    "git.ignoreLimitWarning": true
+}
