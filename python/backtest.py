@@ -9,7 +9,7 @@ print('|              napa test               |')
 print('----------------------------------------')
 
 bear = False
-file_in = '../BTC-USD-300.txt'
+file_in = '../BTC-USD.txt'
 candles = {}
 candles['5 minute'] = []
 candles['30 minute'] = []

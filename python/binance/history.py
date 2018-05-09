@@ -22,7 +22,7 @@ print('----------------------------------------')
 signal.signal(signal.SIGINT, interrupts)
 signal.signal(signal.SIGTERM, interrupts)
 
-filter = set(['ETH', 'BTC', 'XLM', 'NANO', 'XRP'])
+filter = set(['BTC', 'ETH', 'XRP', 'BCH', 'EOS', 'LTC', 'ADA', 'XLM', 'IOTA', 'NANO', 'NEO', 'XMR', 'USDT', 'DASH', 'NEM', 'VEN', 'QTUM', 'ICX', 'OMG', 'ONT', 'STEEM', 'SC'])
 
 run = True
 interval = '1d'
@@ -43,7 +43,7 @@ for symbol_data in symbols:
     quote = symbol_data['quoteAsset']
     if not quote in filter:
         continue
-    file_out = '../symbols/' + base + '-' + quote + '.txt'
+    file_out = './symbols/' + base + '-' + quote + '.txt'
     existing_start = None
     existing_end = None
     candles = {}
@@ -81,7 +81,7 @@ for symbol_data in symbols:
                 break
 
     if existing_start:
-        end = datetime.utcfromtimestamp(existing_start / 1000)
+        end = datetime.utcfromtimestamp(existing_start / 1000.0)
     else:
         end = datetime.utcnow()
     while run:
