@@ -25,7 +25,7 @@ signal.signal(signal.SIGTERM, interrupts)
 run = True
 product = 'BTC-USD'
 granularity = '300'
-file_out = '../' + product + '-' + granularity + '.txt'
+file_out = '../' + product + '.txt'
 
 candle_start_time = 2000000000
 candle_end_time = -1
