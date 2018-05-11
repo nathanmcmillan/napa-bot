@@ -133,14 +133,27 @@ while open_time < end:
             available.add(coin)
     target_percent = 1.0 / len(available)
 
+    worth = coins_usd()
+
     todo = []
     for coin, percent in coins_percent().items():
         if not coin in available:
+            print(coin, 'not available')
             continue
-        difference = (percent / 100.0) - target_percent
-        amount = difference * funds[coin]
-        print(coin, target_percent, percent, difference, amount)
-        todo.append((coin, amount))
+        # difference = (percent / 100.0) - target_percent
+        # amount = difference * funds[coin]
+        # print(coin, target_percent, percent, difference, amount)
+        actual_percent = percent / 100.0
+        if abs(target_percent - actual_percent) < 0.03:
+            continue
+        usd_amount = target_percent * worth['USD'] - worth[coin]
+        # if usd_amount < 0.0 or usd_funds > usd_amount:
+        coin_amount = get_coin(open_time, coin, usd_amount)
+        funds[coin] += coin_amount
+        usd_funds -= usd_amount
+        print('{} - {:,.2f}% - $ {:,.2f} - {:,.2f} - {:,.2f}% - $ {:,.2f}'.format(coin, percent, usd_amount, coin_amount, get_usd(open_time, coin, funds[coin]) / worth['USD'] * 100.0, usd_funds))
+    print('-----------------------')
+    ''' todo.append((coin, amount))
 
     todo.sort(key=lambda x: x[1], reverse=True)
     for fund in todo:
@@ -148,13 +161,12 @@ while open_time < end:
         amount = fund[1]
         funds[coin] -= amount
         usd_funds += get_usd(open_time, coin, amount)
-        print('UPDATE', coin, funds[coin], usd_funds)
-
-    if usd_funds > 0.0:
+        print('UPDATE', coin, funds[coin], usd_funds) '''
+    ''' if usd_funds > 0.0:
         equal = usd_funds * target_percent
         for coin in available:
             funds[coin] += get_coin(open_time, coin, equal)
-            usd_funds -= equal
+            usd_funds -= equal '''
 
     previous_time = open_time
     open_time += interval
