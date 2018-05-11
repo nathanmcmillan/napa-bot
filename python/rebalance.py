@@ -54,12 +54,13 @@ for file_in in os.listdir(coin_folder):
 candles = OrderedDict(sorted(candles.items(), key=lambda t: t[0]))
 
 fees = 0.001
+initial_btc = 1000.0 / 2339.01
 funds = {}
 usd_funds = 0.0
-funds['BTC'] = 5.0
-funds['NANO'] = 5.0
-funds['XLM'] = 5.0
-funds['VEN'] = 5.0
+funds['BTC'] = initial_btc
+funds['NANO'] = 0.0
+funds['XLM'] = 0.0
+funds['VEN'] = 0.0
 interval = 24 * 60 * 60
 
 
@@ -95,19 +96,19 @@ def get_coin(open_time, coin, usd):
     return 0.0
 
 
-def coins_usd():
+def coins_usd(open_time):
     coins = {}
     usd = 0.0
     for coin, balance in funds.items():
-        value = get_usd(end, coin, balance)
+        value = get_usd(open_time, coin, balance)
         coins[coin] = value
         usd += value
     coins['USD'] = usd
     return coins
 
 
-def coins_percent():
-    coins = coins_usd()
+def coins_percent(open_time):
+    coins = coins_usd(open_time)
     usd = coins['USD']
     del coins['USD']
     percents = {}
@@ -133,48 +134,35 @@ while open_time < end:
             available.add(coin)
     target_percent = 1.0 / len(available)
 
-    worth = coins_usd()
-
+    coin_value = coins_usd(open_time)
     todo = []
-    for coin, percent in coins_percent().items():
-        if not coin in available:
-            print(coin, 'not available')
-            continue
-        # difference = (percent / 100.0) - target_percent
-        # amount = difference * funds[coin]
-        # print(coin, target_percent, percent, difference, amount)
-        actual_percent = percent / 100.0
-        if abs(target_percent - actual_percent) < 0.03:
-            continue
-        usd_amount = target_percent * worth['USD'] - worth[coin]
-        # if usd_amount < 0.0 or usd_funds > usd_amount:
-        coin_amount = get_coin(open_time, coin, usd_amount)
-        funds[coin] += coin_amount
-        usd_funds -= usd_amount
-        print('{} - {:,.2f}% - $ {:,.2f} - {:,.2f} - {:,.2f}% - $ {:,.2f}'.format(coin, percent, usd_amount, coin_amount, get_usd(open_time, coin, funds[coin]) / worth['USD'] * 100.0, usd_funds))
-    print('-----------------------')
-    ''' todo.append((coin, amount))
+    for coin in available:
+        print(coin, coin_value[coin], funds[coin])
+        actual_percent = coin_value[coin] / coin_value['USD']
+        # if abs(target_percent - actual_percent) < 0.03:
+        #    continue
+        usd_amount = target_percent * coin_value['USD'] - coin_value[coin]
+        todo.append((coin, usd_amount))
 
-    todo.sort(key=lambda x: x[1], reverse=True)
+    todo.sort(key=lambda x: x[1])
     for fund in todo:
         coin = fund[0]
-        amount = fund[1]
-        funds[coin] -= amount
-        usd_funds += get_usd(open_time, coin, amount)
-        print('UPDATE', coin, funds[coin], usd_funds) '''
-    ''' if usd_funds > 0.0:
-        equal = usd_funds * target_percent
-        for coin in available:
-            funds[coin] += get_coin(open_time, coin, equal)
-            usd_funds -= equal '''
+        usd_amount = min(usd_funds, fund[1])
+        coin_amount = get_coin(open_time, coin, usd_amount)
+        funds[coin] += coin_amount * (1.0 - fees)
+        usd_funds -= usd_amount
 
+    print('-----------------------')
     previous_time = open_time
     open_time += interval
 
-for coin, usd in coins_usd().items():
-    print('{0:10} $ {1:,.2f}'.format(coin, usd))
+coin_value = coins_usd(end)
+total_usd = coin_value['USD']
+del coin_value['USD']
+for coin, usd in coin_value.items():
+    percent = usd / total_usd * 100.0
+    print('{0:5} {1:10,.2f} % $ {2:10,.2f} / {3:10}'.format(coin, percent, usd, funds[coin]))
+print('{0:5} {1:10,.2f} % $ {2:10,.2f}'.format('USD', 100.0, total_usd))
 print()
-for coin, percent in coins_percent().items():
-    print('{0:10} {1:,.2f} %'.format(coin, percent))
-
-print('unused usd', usd_funds)
+print('unused $ {:,.2f}'.format(usd_funds))
+print('btc $ {:,.2f} / {}'.format(get_usd(end, 'BTC', initial_btc), initial_btc))

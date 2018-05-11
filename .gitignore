@@ -3,6 +3,8 @@
 *.db
 *.exe
 __pycache__/
+*.pyc
 
 !settings.json
 !BTC-USD.txt
+!/symbols/*
