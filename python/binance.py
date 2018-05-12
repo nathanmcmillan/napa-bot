@@ -5,6 +5,7 @@ import hashlib
 import time
 import base64
 import json
+from fractions import Fraction
 
 SITE = 'api.binance.com'
 
@@ -32,16 +33,16 @@ def request(method, site, path, body):
 class Candle:
     def __init__(self, data):
         self.open_time = int(data[0])
-        self.open = float(data[1])
-        self.high = float(data[2])
-        self.low = float(data[3])
-        self.closing = float(data[4])
-        self.volume = float(data[5])
+        self.open = Fraction(data[1])
+        self.high = Fraction(data[2])
+        self.low = Fraction(data[3])
+        self.closing = Fraction(data[4])
+        self.volume = Fraction(data[5])
         self.close_time = int(data[6])
-        self.quote_asset_volume = float(data[7])
+        self.quote_asset_volume = Fraction(data[7])
         self.number_of_trades = int(data[8])
-        self.taker_buy_base_asset_volume = float(data[9])
-        self.taker_buy_quote_asset_volume = float(data[10])
+        self.taker_buy_base_asset_volume = Fraction(data[9])
+        self.taker_buy_quote_asset_volume = Fraction(data[10])
 
 
 class Ticker:
