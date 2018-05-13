@@ -1,9 +1,5 @@
-import time
 import http.client
-import hmac
-import hashlib
 import time
-import base64
 import json
 from fractions import Fraction
 
