@@ -186,9 +186,19 @@ def balancing(to_buy, to_sell):
             break
 
 
-previous_time = start
-open_time = start + interval
-while open_time < end:
+def target_simple(open_time, available):
+    percent = Fraction(1, len(available))
+    targets = {}
+    for coin in available:
+        targets[coin] = percent
+    return targets
+
+
+def target_trend(open_time, available):
+    percent = Fraction(1, len(available))
+    targets = {}
+    for coin in available:
+        targets[coin] = percent
     ''' trends = []
     for symbol in symbols:
         if symbol in candles[open_time] and symbol in candles[previous_time]:
@@ -196,43 +206,78 @@ while open_time < end:
             now = candles[previous_time][symbol].closing
             trends.append((symbol, (now - was) / was))
     trends.sort(key=lambda x: x[1]) '''
+    return targets
 
-    available = set()
-    for coin in funds:
-        if coin in exchanges[open_time]:
-            available.add(coin)
-    target_percent = Fraction(1, len(available))
 
-    coin_value = coins_usd(open_time)
-    target_usd = target_percent * coin_value['USD']
-    to_buy = []
-    to_sell = []
+def target_cap(open_time, available):
+    percent = Fraction(1, len(available))
+    targets = {}
     for coin in available:
-        print(coin, fmt_frac(coin_value[coin]), fmt_frac(funds[coin]))
-        actual_percent = coin_value[coin] / coin_value['USD']
-        if abs(target_percent - actual_percent) < min_rebalance:
-            continue
-        target_coin_amount = get_coin_amount(open_time, coin, target_usd)
-        amount = target_coin_amount - funds[coin]
-        if amount > zero:
-            to_buy.append([coin, amount])
-        else:
-            to_sell.append([coin, -amount])
-    balancing(to_buy, to_sell)
+        targets[coin] = percent
+    return targets
 
-    print('-----------------------')
-    previous_time = open_time
-    open_time += interval
 
-coin_value = coins_usd(end)
-total_usd = coin_value['USD']
-del coin_value['USD']
-for coin, usd in coin_value.items():
-    percent = usd / total_usd * hundred_percent
-    print('{0:5} {1:10,.2f} % $ {2:10,.2f} / {3:10}'.format(coin, fmt_frac(percent), fmt_frac(usd), fmt_frac(funds[coin])))
-print('{0:5} {1:10,.2f} % $ {2:10,.2f}'.format('USD', fmt_frac(hundred_percent), fmt_frac(total_usd)))
-print()
+todo = []
+todo.append(('simple'), target_simple)
+todo.append(('trend'), target_trend)
+todo.append(('market cap'), target_cap)
+
+ls = []
+for interval, candles in candles.items():
+    for test in todo:
+        name = test[0]
+        algo = test[1]
+        print('testing...', end=' ', flush=True)
+
+        previous_time = start
+        open_time = start + interval
+        while open_time < end:
+
+            available = set()
+            for coin in funds:
+                if coin in exchanges[open_time]:
+                    available.add(coin)
+            
+            targets = algo(open_time, available)
+            coin_value = coins_usd(open_time)
+
+            to_buy = []
+            to_sell = []
+            for coin in available:
+                print(coin, fmt_frac(coin_value[coin]), fmt_frac(funds[coin]))
+                actual_percent = coin_value[coin] / coin_value['USD']
+                if abs(targets[coin] - actual_percent) < min_rebalance:
+                    continue
+                target_usd = targets[coin] * coin_value['USD']
+                target_coin_amount = get_coin_amount(open_time, coin, target_usd)
+                amount = target_coin_amount - funds[coin]
+                if amount > zero:
+                    to_buy.append([coin, amount])
+                else:
+                    to_sell.append([coin, -amount])
+            balancing(to_buy, to_sell)
+
+            previous_time = open_time
+            open_time += interval
+
+
+        coin_value = coins_usd(open_time)
+        ls.append((interval, name, coin_value['USD'], funds))
+
+print('----------------------------------------')
 print('btc $ {:,.2f} / {}'.format(get_usd(end, 'BTC', initial_btc), fmt_frac(initial_btc)))
+
+ls.sort(key=itemgetter(2), reverse=True)
+
+for index in range(min(10, len(ls))):
+    print('----------------------------------------')
+    coin_value = coins_usd(end)
+    total_usd = coin_value['USD']
+    del coin_value['USD']
+    for coin, usd in coin_value.items():
+        percent = usd / total_usd * hundred_percent
+        print('{0:5} {1:10,.2f} % $ {2:10,.2f} / {3:10}'.format(coin, fmt_frac(percent), fmt_frac(usd), fmt_frac(funds[coin])))
+    print('{0:5} {1:10,.2f} % $ {2:10,.2f}'.format('USD', fmt_frac(hundred_percent), fmt_frac(total_usd)))
 
 print('calculate fee + tax for every order placed')
 print('download full 5 minute ETH price history')
