@@ -4,6 +4,7 @@ import gdax
 from operator import itemgetter
 from collections import OrderedDict
 from fractions import Fraction
+from datetime import datetime
 
 print('----------------------------------------')
 print('|      napa index fund back test       |')
@@ -18,13 +19,31 @@ def fmt_frac(frac):
 
 
 btc_file = '../BTC-USD.txt'
+cap_file = '../MARKET-CAP.txt'
 coin_folder = '../symbols/'
+epoch = datetime(1970, 1, 1)
 
 btc_candles = {}
 with open(btc_file, 'r') as f:
     for line in f:
         candle = gdax.Candle(line.split())
         btc_candles[candle.time] = candle
+
+market_caps = {}
+with open(cap_file, 'r') as f:
+    for line in f:
+        data = line.split()
+        str_date = data[0]
+        year = int(str_date[0:4])
+        month = int(str_date[4:6])
+        day = int(str_date[6:9])
+        str_datetime = datetime(year, month, day)
+        coin = data[1]
+        cap = Fraction(data[2])
+        open_time = int((str_datetime - epoch).total_seconds())
+        if not open_time in market_caps:
+            market_caps[open_time] = {}
+        market_caps[open_time][coin] = cap
 
 coins = set()
 symbols = set()
@@ -69,12 +88,6 @@ min_rebalance = Fraction(0.005)
 hundred_percent = Fraction(100)
 zero = Fraction(0)
 one = Fraction(1)
-funds = {}
-funds['BTC'] = initial_btc
-funds['NANO'] = Fraction(0)
-funds['XLM'] = Fraction(0)
-funds['VEN'] = Fraction(0)
-interval = 24 * 60 * 60
 
 
 def get_usd(open_time, coin, balance):
@@ -106,7 +119,7 @@ def get_coin_amount(open_time, coin, usd):
     return zero
 
 
-def coins_usd(open_time):
+def coins_usd(funds, open_time):
     coins = {}
     usd = zero
     for coin, balance in funds.items():
@@ -117,7 +130,7 @@ def coins_usd(open_time):
     return coins
 
 
-def balancing(to_buy, to_sell):
+def balancing(funds, to_buy, to_sell):
     for fund in to_sell[:]:
         coin = fund[0]
         if coin != 'BTC' and coin != 'ETH':
@@ -210,24 +223,40 @@ def target_trend(open_time, available):
 
 
 def target_cap(open_time, available):
-    percent = Fraction(1, len(available))
-    targets = {}
-    for coin in available:
-        targets[coin] = percent
-    return targets
+    if open_time in market_caps:
+        targets = {}
+        total_market_cap = Fraction(0)
+        for coin in available:
+            total_market_cap += market_caps[open_time][coin]
+        for coin in available:
+            targets[coin] = market_caps[open_time][coin] / total_market_cap
+        return targets
+    else:
+        return target_simple(open_time, available)
 
 
 todo = []
-todo.append(('simple'), target_simple)
-todo.append(('trend'), target_trend)
-todo.append(('market cap'), target_cap)
+todo.append(('simple', target_simple))
+todo.append(('trend', target_trend))
+todo.append(('market cap', target_cap))
+
+one_day = 24 * 60 * 60
+intervals = [('one day', one_day), ('two days', one_day * 2), ('three days', one_day * 3), ('five days', one_day * 5), ('one week', one_day * 7), ('two weeks', one_day * 14), ('four weeks', one_day * 28)]
 
 ls = []
-for interval, candles in candles.items():
+for interval_pair in intervals:
+    interval = interval_pair[1]
     for test in todo:
+        print('testing...', end=' ', flush=True)
+
         name = test[0]
         algo = test[1]
-        print('testing...', end=' ', flush=True)
+
+        funds = {}
+        funds['BTC'] = initial_btc
+        funds['NANO'] = Fraction(0)
+        funds['XLM'] = Fraction(0)
+        funds['VEN'] = Fraction(0)
 
         previous_time = start
         open_time = start + interval
@@ -237,14 +266,13 @@ for interval, candles in candles.items():
             for coin in funds:
                 if coin in exchanges[open_time]:
                     available.add(coin)
-            
+
             targets = algo(open_time, available)
-            coin_value = coins_usd(open_time)
+            coin_value = coins_usd(funds, open_time)
 
             to_buy = []
             to_sell = []
             for coin in available:
-                print(coin, fmt_frac(coin_value[coin]), fmt_frac(funds[coin]))
                 actual_percent = coin_value[coin] / coin_value['USD']
                 if abs(targets[coin] - actual_percent) < min_rebalance:
                     continue
@@ -255,23 +283,26 @@ for interval, candles in candles.items():
                     to_buy.append([coin, amount])
                 else:
                     to_sell.append([coin, -amount])
-            balancing(to_buy, to_sell)
+            balancing(funds, to_buy, to_sell)
 
             previous_time = open_time
             open_time += interval
 
-
-        coin_value = coins_usd(open_time)
-        ls.append((interval, name, coin_value['USD'], funds))
+        coin_value = coins_usd(funds, end)
+        ls.append((interval_pair, name, coin_value, coin_value['USD']))
 
 print('----------------------------------------')
 print('btc $ {:,.2f} / {}'.format(get_usd(end, 'BTC', initial_btc), fmt_frac(initial_btc)))
 
-ls.sort(key=itemgetter(2), reverse=True)
+ls.sort(key=itemgetter(3), reverse=True)
 
-for index in range(min(10, len(ls))):
+for index in range(len(ls)):  # range(min(10, len(ls))):
     print('----------------------------------------')
-    coin_value = coins_usd(end)
+    ls_tuple = ls[index]
+    interval = ls_tuple[0][0]
+    name = ls_tuple[1]
+    print(name, interval)
+    coin_value = ls_tuple[2]
     total_usd = coin_value['USD']
     del coin_value['USD']
     for coin, usd in coin_value.items():
