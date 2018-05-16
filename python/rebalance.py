@@ -19,6 +19,7 @@ def fmt_frac(frac):
 
 
 btc_file = '../BTC-USD.txt'
+eth_file = '../ETH-USD.txt'
 cap_file = '../MARKET-CAP.txt'
 coin_folder = '../symbols/'
 epoch = datetime(1970, 1, 1)
@@ -28,6 +29,12 @@ with open(btc_file, 'r') as f:
     for line in f:
         candle = gdax.Candle(line.split())
         btc_candles[candle.time] = candle
+
+eth_candles = {}
+with open(eth_file, 'r') as f:
+    for line in f:
+        candle = gdax.Candle(line.split())
+        eth_candles[candle.time] = candle
 
 market_caps = {}
 with open(cap_file, 'r') as f:
@@ -49,6 +56,7 @@ coins = set()
 symbols = set()
 exchanges = {}
 candles = {}
+one_day = 24 * 60 * 60
 start = None
 end = None
 for file_in in os.listdir(coin_folder):
@@ -80,6 +88,9 @@ for file_in in os.listdir(coin_folder):
             if not end or open_time > end:
                 end = open_time
 candles = OrderedDict(sorted(candles.items(), key=lambda t: t[0]))
+
+while not start in market_caps:
+    start += one_day
 
 fees = Fraction(0.001)
 fee_purchase = Fraction(1) - fees
@@ -199,7 +210,7 @@ def balancing(funds, to_buy, to_sell):
             break
 
 
-def target_simple(open_time, available):
+def target_simple(open_time, previous_time, available):
     percent = Fraction(1, len(available))
     targets = {}
     for coin in available:
@@ -207,22 +218,45 @@ def target_simple(open_time, available):
     return targets
 
 
-def target_trend(open_time, available):
-    percent = Fraction(1, len(available))
-    targets = {}
+def target_trend(open_time, previous_time, available):
+    trends = []
     for coin in available:
-        targets[coin] = percent
-    ''' trends = []
-    for symbol in symbols:
-        if symbol in candles[open_time] and symbol in candles[previous_time]:
+        to = exchanges[open_time][coin]
+        for to_coin in to:
+            symbol = coin + to_coin
+            if not symbol in candles[open_time] or not symbol in candles[previous_time]:
+                symbol = to_coin + coin
+            if not symbol in candles[open_time] or not symbol in candles[previous_time]:
+                continue
             was = candles[open_time][symbol].closing
             now = candles[previous_time][symbol].closing
-            trends.append((symbol, (now - was) / was))
-    trends.sort(key=lambda x: x[1]) '''
+            trends.append((coin, to_coin, (now - was) / was))
+    trends.sort(key=lambda x: x[2])
+
+    top = set()
+    above = 0
+    for trend in trends[:]:
+        coin = trend[0]
+        if coin in top:
+            trends.remove(trend)
+        else:
+            top.add(trend)
+            if trend[2] > 0.0:
+                above += 1
+
+    percent = Fraction(1, max(1, above))
+    targets = {}
+    for coin in available:
+        targets[coin] = 0.0
+    for trend in trends:
+        coin = trend[0]
+        rate = trend[2]
+        if rate > 0.0:
+            targets[coin] = percent
     return targets
 
 
-def target_cap(open_time, available):
+def target_cap(open_time, previous_time, available):
     if open_time in market_caps:
         targets = {}
         total_market_cap = Fraction(0)
@@ -232,7 +266,7 @@ def target_cap(open_time, available):
             targets[coin] = market_caps[open_time][coin] / total_market_cap
         return targets
     else:
-        return target_simple(open_time, available)
+        return target_simple(open_time, previous_time, available)
 
 
 todo = []
@@ -240,68 +274,80 @@ todo.append(('simple', target_simple))
 todo.append(('trend', target_trend))
 todo.append(('market cap', target_cap))
 
-one_day = 24 * 60 * 60
 intervals = [('one day', one_day), ('two days', one_day * 2), ('three days', one_day * 3), ('five days', one_day * 5), ('one week', one_day * 7), ('two weeks', one_day * 14), ('four weeks', one_day * 28)]
+portfolio = [2, 5, 10, 20, 30]
 
 ls = []
-for interval_pair in intervals:
-    interval = interval_pair[1]
-    for test in todo:
-        print('testing...', end=' ', flush=True)
+for holding in portfolio:
+    for interval_pair in intervals:
+        interval = interval_pair[1]
+        for test in todo:
+            print('testing...', end=' ', flush=True)
 
-        name = test[0]
-        algo = test[1]
+            name = test[0]
+            algo = test[1]
 
-        funds = {}
-        funds['BTC'] = initial_btc
-        funds['NANO'] = Fraction(0)
-        funds['XLM'] = Fraction(0)
-        funds['VEN'] = Fraction(0)
+            previous_time = start
+            open_time = start + interval
 
-        previous_time = start
-        open_time = start + interval
-        while open_time < end:
+            funds = {}
+            total_market_cap = Fraction(0)
+            for coin in exchanges[start]:
+                if coin in market_caps[start]:
+                    total_market_cap += market_caps[start][coin]
+            cap = []
+            for coin in exchanges[start]:
+                if coin in market_caps[start]:
+                    cap.append((coin, market_caps[start][coin] / total_market_cap))
+            cap.sort(key=itemgetter(1), reverse=True)
 
-            available = set()
-            for coin in funds:
-                if coin in exchanges[open_time]:
-                    available.add(coin)
+            for index in range(min(holding, len(cap))):
+                funds[cap[index][0]] = Fraction(0)  # need to run every interval for newly added
+            funds['BTC'] = initial_btc
 
-            targets = algo(open_time, available)
-            coin_value = coins_usd(funds, open_time)
+            while open_time < end:
 
-            to_buy = []
-            to_sell = []
-            for coin in available:
-                actual_percent = coin_value[coin] / coin_value['USD']
-                if abs(targets[coin] - actual_percent) < min_rebalance:
-                    continue
-                target_usd = targets[coin] * coin_value['USD']
-                target_coin_amount = get_coin_amount(open_time, coin, target_usd)
-                amount = target_coin_amount - funds[coin]
-                if amount > zero:
-                    to_buy.append([coin, amount])
-                else:
-                    to_sell.append([coin, -amount])
-            balancing(funds, to_buy, to_sell)
+                available = set()
+                for coin in funds:
+                    if coin in exchanges[open_time]:
+                        available.add(coin)
 
-            previous_time = open_time
-            open_time += interval
+                targets = algo(open_time, previous_time, available)
+                coin_value = coins_usd(funds, open_time)
 
-        coin_value = coins_usd(funds, end)
-        ls.append((interval_pair, name, coin_value, coin_value['USD']))
+                to_buy = []
+                to_sell = []
+                for coin in available:
+                    actual_percent = coin_value[coin] / coin_value['USD']
+                    if abs(targets[coin] - actual_percent) < min_rebalance:
+                        continue
+                    target_usd = targets[coin] * coin_value['USD']
+                    target_coin_amount = get_coin_amount(open_time, coin, target_usd)
+                    amount = target_coin_amount - funds[coin]
+                    if amount > zero:
+                        to_buy.append([coin, amount])
+                    else:
+                        to_sell.append([coin, -amount])
+                balancing(funds, to_buy, to_sell)
+
+                previous_time = open_time
+                open_time += interval
+
+            coin_value = coins_usd(funds, end)
+            ls.append((interval_pair, name, coin_value, coin_value['USD'], holding))
+            print('$', coin_value['USD'])
 
 print('----------------------------------------')
 print('btc $ {:,.2f} / {}'.format(get_usd(end, 'BTC', initial_btc), fmt_frac(initial_btc)))
 
 ls.sort(key=itemgetter(3), reverse=True)
 
-for index in range(len(ls)):  # range(min(10, len(ls))):
+for ls_tuple in ls:
     print('----------------------------------------')
-    ls_tuple = ls[index]
     interval = ls_tuple[0][0]
+    holding = ls_tuple[4]
     name = ls_tuple[1]
-    print(name, interval)
+    print(name, '|', interval, '| holding', holding)
     coin_value = ls_tuple[2]
     total_usd = coin_value['USD']
     del coin_value['USD']
@@ -313,6 +359,4 @@ for index in range(len(ls)):  # range(min(10, len(ls))):
 print('calculate fee + tax for every order placed')
 print('download full 5 minute ETH price history')
 print('time sensitivity analysis / how does start date affect end value')
-print('different rebalance periods')
-print('percent change / weighted market cap / simple percent')
 print('search for best symbol deal when exchanging coins / have to buy extra of one / map of shortest path')

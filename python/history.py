@@ -23,12 +23,12 @@ signal.signal(signal.SIGINT, interrupts)
 signal.signal(signal.SIGTERM, interrupts)
 
 run = True
-product = 'BTC-USD'
+product = 'ETH-USD'
 granularity = '300'
 file_out = '../' + product + '.txt'
 
-candle_start_time = 2000000000
-candle_end_time = -1
+candle_start_time = None
+candle_end_time = None
 candle_dictionary = {}
 
 if os.path.exists(file_out):
@@ -36,16 +36,16 @@ if os.path.exists(file_out):
         for line in f:
             candle = gdax.Candle(line.split())
             candle_dictionary[candle.time] = candle
-            if candle.time < candle_start_time:
+            if not candle_start_time or candle.time < candle_start_time:
                 candle_start_time = candle.time
-            if candle.time > candle_end_time:
+            if not candle_end_time or candle.time > candle_end_time:
                 candle_end_time = candle.time
 
 time_interval = float(granularity) * 200.0
 time_format = '%Y-%m-%d %I:%M:%S %p'
 
 # backwards
-if candle_start_time > -1:
+if candle_start_time:
     end = datetime.utcfromtimestamp(candle_start_time)
     while run:
         start = end - timedelta(seconds=time_interval)
@@ -59,7 +59,7 @@ if candle_start_time > -1:
         end = start
 
 # forwards
-if candle_end_time == -1:
+if candle_end_time:
     start = datetime.utcnow() - timedelta(days=(365.0 * 3.0))
 else:
     start = datetime.utcfromtimestamp(candle_end_time)
