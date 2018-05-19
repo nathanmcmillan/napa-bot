@@ -3,6 +3,7 @@
 *.db
 *.exe
 __pycache__/
+*/node_modules/
 *.pyc
 
 !settings.json
