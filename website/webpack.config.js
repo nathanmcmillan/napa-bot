@@ -1,26 +1,19 @@
 var path = require('path')
-var webpack = require('webpack')
-
-var app_dir = path.resolve(__dirname, 'source')
-var build_dir = path.resolve(__dirname, 'public')
+const webpack = require('webpack')
+const public = path.resolve(__dirname, 'public')
 
 module.exports = {
-    mode: 'development',
-    devServer: {
-        inline: true,
-        contentBase: build_dir,
-        port: 3000
-    },
-    entry: app_dir + '/index.js',
+    mode: 'production',
+    entry: public + '/index.js',
     output: {
-        path: build_dir,
+        path: public,
         filename: 'bundle.js'
     },
     module: {
         rules: [
             {
                 test: /\.js?$/,
-                include: app_dir,
+                include: public,
                 exclude: /node_modules/,
                 use: [
                     {

@@ -26,14 +26,14 @@ function serve(req, res) {
     console.log(req.url)
     let pathname = '.' + req.url
     const ext = path.parse(pathname).ext
-    if (cache[pathname]) {
+    if (cache[req.url]) {
         res.setHeader('Content-type', contentMap[ext] || 'text/plain')
         res.end(cache[pathname])
     } else {
         fs.exists(pathname, function (exist) {
             if (!exist) {
                 res.statusCode = 404
-                res.end(`${pathname} not found!`)
+                res.end(`${req.url} not found!`)
                 return
             }
             if (fs.statSync(pathname).isDirectory()) {
@@ -45,7 +45,7 @@ function serve(req, res) {
                     res.end(`internal server error`)
                     console.log(err)
                 } else {
-                    cache[pathname] = data
+                    cache[req.url] = data
                     res.setHeader('Content-type', contentMap[ext] || 'text/plain')
                     res.end(data)
                 }
